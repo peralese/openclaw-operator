@@ -1,0 +1,4 @@
+2026-04-09 09:20 - Installed Ollama and verified `qwen3:8b`
+2026-04-09 10:05 - Configured OpenClaw routing: Ollama primary, OpenAI fallback
+2026-04-09 11:15 - Drafted `oc-plan` and `oc-next` flow
+2026-04-09 12:00 - Implemented MVP `oc-capture` / `oc-continue` workflow
