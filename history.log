@@ -2,3 +2,22 @@
 2026-04-09 10:05 - Configured OpenClaw routing: Ollama primary, OpenAI fallback
 2026-04-09 11:15 - Drafted `oc-plan` and `oc-next` flow
 2026-04-09 12:00 - Implemented MVP `oc-capture` / `oc-continue` workflow
+
+[2026-05-05 21:18:58]
+Project: OpenClaw Personal AI Operator
+
+Current State:
+- Shell functions now point to ~/Projects/<project-name>
+- oc-continue uses isolated session IDs
+- oc-capture and oc-continue are working against Git-backed project directories
+- openclaw-operator and family-cookbook contexts are separated
+
+In Progress:
+- Validating clean project isolation
+- Refining context capture and resume workflow
+
+Open Issues:
+- Need to keep context.md compact and project-specific
+
+Next Goal:
+- Commit the updated .zshrc pattern and project context changes
