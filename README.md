@@ -4,7 +4,7 @@ A local-first OpenClaw project for capturing project status updates and resuming
 
 ## Current Objective
 
-Build a small self-documenting repo for the first OpenClaw operator: a CLI-based context intake and resume assistant.
+Build a small self-documenting repo for the first OpenClaw operator: a CLI-based context intake and resume assistant that keeps each project context compact, isolated, and easy to continue later.
 
 ## High-Level Architecture
 
@@ -13,13 +13,30 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - Fallback support for OpenAI when needed
 - Shell-based flow with lightweight markdown persistence
 - Core agent: Project Context Intake & Resume Agent
+- Project source of truth: `~/Projects/<project-name>`
+- Each project stores distilled context in `context.md`
+- Each project stores raw captured updates in `history.log`
 
 ## Current Commands
 
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
-- `oc-capture` — capture current project state
-- `oc-continue` — resume work from saved context
+- `oc-capture <project-name>` — capture current project state into `~/Projects/<project-name>/context.md`
+- `oc-continue <project-name>` — resume work from `~/Projects/<project-name>/context.md`
+
+## Capture / Continue Workflow
+
+- Run `oc-capture <project-name>` when parking project state.
+- Enter a raw status update, then press Ctrl-D.
+- The raw update is appended to `~/Projects/<project-name>/history.log`.
+- OpenClaw distills the update into the required `# Project Context` markdown structure.
+- The distilled context is written to `~/Projects/<project-name>/context.md`.
+- `oc-capture` strips OpenClaw CLI decorations before saving context:
+  - lines beginning with `🦞 OpenClaw`
+  - lines containing only `│`
+  - lines containing only `◇`
+  - leading output before `# Project Context`
+- Run `oc-continue <project-name>` to resume from the saved context for that project.
 
 ## Current Status
 
@@ -28,13 +45,41 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - OpenClaw configured to use Ollama first and OpenAI as fallback
 - `oc-plan` and `oc-next` are working concepts in the MVP
 - `oc-capture` and `oc-continue` MVP flow implemented
-- The model still occasionally drifts into speculative OpenClaw internals
+- `oc-capture` uses isolated capture session IDs
+- `oc-capture` now saves cleaned markdown without OpenClaw terminal decorations
+- Prompt rules reduce drift into speculative OpenClaw internals
 
-## Next Steps
+## Known Limitations
 
-- Tighten `oc-capture` output format for consistent structured context
-- Add support for multi-project usage
-- Reduce hallucination by grounding responses in local markdown and git state
+- Shell functions currently live in `.zshrc` instead of a repo-tracked script.
+- Multi-project behavior needs validation across real project directories.
+- `oc-continue` formatting is still basic.
+- There is no project list or status command yet.
+- Telegram and email intake are not implemented yet.
+
+## Roadmap
+
+### Immediate Next Steps
+
+- Validate `oc-capture` output across two projects
+- Confirm `context.md` always starts with `# Project Context`
+- Confirm `oc-continue` stays project-specific
+- Commit cleaned project state
+
+### Near-Term Roadmap
+
+- Move shell functions into repo-tracked `scripts/shell-functions.zsh`
+- Have `.zshrc` source that script instead of containing all functions directly
+- Add multi-project usage examples
+- Improve `oc-continue` formatting
+- Add optional project list/status command
+
+### Later Roadmap
+
+- Telegram-based context intake
+- Dedicated email intake only after Telegram pattern works
+- Richer project memory/history summaries
+- Possible lightweight project dashboard
 
 ## Repo Structure
 
