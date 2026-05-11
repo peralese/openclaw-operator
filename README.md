@@ -24,6 +24,12 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-capture <project-name>` — capture current project state into `~/Projects/<project-name>/context.md`
 - `oc-continue <project-name>` — resume work from `~/Projects/<project-name>/context.md`
 
+These shell helpers are tracked in `scripts/openclaw-shell-functions.zsh` and loaded from `~/.zshrc`:
+
+```zsh
+source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
+```
+
 ## Capture / Continue Workflow
 
 - Run `oc-capture <project-name>` when parking project state.
@@ -51,7 +57,6 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 
 ## Known Limitations
 
-- Shell functions currently live in `.zshrc` instead of a repo-tracked script.
 - Multi-project behavior needs validation across real project directories.
 - `oc-continue` formatting is still basic.
 - There is no project list or status command yet.
@@ -68,8 +73,6 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 
 ### Near-Term Roadmap
 
-- Move shell functions into repo-tracked `scripts/shell-functions.zsh`
-- Have `.zshrc` source that script instead of containing all functions directly
 - Add multi-project usage examples
 - Improve `oc-continue` formatting
 - Add optional project list/status command
@@ -88,4 +91,4 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `history.log` — saved timeline of key milestones
 - `notes/` — session notes and idea backlog
 - `agents/` — agent definitions and design docs
-- `scripts/` — placeholder documentation for shell helpers
+- `scripts/openclaw-shell-functions.zsh` — tracked shell helpers loaded by `~/.zshrc`
