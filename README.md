@@ -37,12 +37,13 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 - The raw update is appended to `~/Projects/<project-name>/history.log`.
 - OpenClaw distills the update into the required `# Project Context` markdown structure.
 - The distilled context is written to `~/Projects/<project-name>/context.md`.
-- `oc-capture` strips OpenClaw CLI decorations before saving context:
+- `oc-capture` starts saved context at the first exact `# Project Context` heading when present.
+- If that heading is missing, `oc-capture` falls back to stripping OpenClaw CLI decorations:
   - lines beginning with `🦞 OpenClaw`
   - lines containing only `│`
   - lines containing only `◇`
   - leading blank lines before real content
-- If filtering produces empty output, `oc-capture` saves the raw OpenClaw output for inspection and prints a warning.
+- If filtering still produces empty output, `oc-capture` saves raw output or a diagnostic message for inspection and prints a warning.
 - Run `oc-continue <project-name>` to resume from the saved context for that project.
 
 ## Current Status
