@@ -39,6 +39,9 @@ oc-capture() {
   local raw_output_file
   raw_output_file="$(mktemp)"
 
+  local filtered_output_file
+  filtered_output_file="$(mktemp)"
+
   openclaw agent --agent main --session-id "$session_id" --message "
 You are a Project Context Intake Agent.
 
@@ -97,17 +100,21 @@ $input
     /^🦞 OpenClaw/ { next }
     /^[[:space:]]*│[[:space:]]*$/ { next }
     /^[[:space:]]*◇[[:space:]]*$/ { next }
-    !started {
-      if ($0 == "# Project Context") {
-        started = 1
-        print
-      }
-      next
+    !started && /^[[:space:]]*$/ { next }
+    {
+      started = 1
+      print
     }
-    { print }
-  ' "$raw_output_file" | tee "$context_file"
+  ' "$raw_output_file" > "$filtered_output_file"
 
-  rm -f "$raw_output_file"
+  if [ ! -s "$filtered_output_file" ]; then
+    tee "$context_file" < "$raw_output_file"
+    echo "Warning: filtered output was empty; saved raw output for inspection."
+  else
+    tee "$context_file" < "$filtered_output_file"
+  fi
+
+  rm -f "$raw_output_file" "$filtered_output_file"
 
   echo
   echo "Saved distilled context to: $context_file"

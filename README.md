@@ -41,7 +41,8 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
   - lines beginning with `🦞 OpenClaw`
   - lines containing only `│`
   - lines containing only `◇`
-  - leading output before `# Project Context`
+  - leading blank lines before real content
+- If filtering produces empty output, `oc-capture` saves the raw OpenClaw output for inspection and prints a warning.
 - Run `oc-continue <project-name>` to resume from the saved context for that project.
 
 ## Current Status
@@ -67,7 +68,7 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 ### Immediate Next Steps
 
 - Validate `oc-capture` output across two projects
-- Confirm `context.md` always starts with `# Project Context`
+- Confirm `context.md` contains clean project-specific context
 - Confirm `oc-continue` stays project-specific
 - Commit cleaned project state
 
