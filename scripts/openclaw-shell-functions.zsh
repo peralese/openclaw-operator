@@ -97,9 +97,16 @@ $input
 " > "$raw_output_file"
 
   awk '
-    found || $0 == "# Project Context" {
-      found = 1
+    {
+      gsub(/\033\[[0-9;?]*[A-Za-z]/, "")
+    }
+    found {
       print
+      next
+    }
+    index($0, "# Project Context") {
+      found = 1
+      print "# Project Context"
     }
   ' "$raw_output_file" > "$filtered_output_file"
 
@@ -107,6 +114,9 @@ $input
     echo "Warning: # Project Context not found; saved decoration-stripped output for inspection."
 
     awk '
+      {
+        gsub(/\033\[[0-9;?]*[A-Za-z]/, "")
+      }
       /^🦞 OpenClaw/ { next }
       /^[[:space:]]*│[[:space:]]*$/ { next }
       /^[[:space:]]*◇[[:space:]]*$/ { next }
@@ -122,8 +132,7 @@ $input
     tee "$context_file" < "$raw_output_file"
     echo "Warning: filtered output was empty; saved raw output for inspection."
   elif [ ! -s "$filtered_output_file" ]; then
-    printf '%s\n' "Warning: OpenClaw produced no output." | tee "$context_file"
-    echo "Warning: filtered output and raw output were empty; saved diagnostic message for inspection."
+    printf '%s\n' "Warning: filtered output was empty; saved raw output for inspection." | tee "$context_file"
   else
     tee "$context_file" < "$filtered_output_file"
   fi
