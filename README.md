@@ -77,28 +77,62 @@ cat README.md | oc-capture family-cookbook
 - `oc-projects` does not yet group projects by status category.
 - Telegram and email intake are not implemented yet.
 
-## Roadmap
+# Roadmap
 
-### Immediate Next Steps
+## Philosophy
 
-- Validate `oc-capture` output across two projects
-- Confirm `context.md` contains clean project-specific context
-- Confirm `oc-continue` stays project-specific
-- Commit cleaned project state
+- Capture lightweight human updates without forcing a heavyweight process.
+- Normalize raw notes into structured operational context.
+- Resume work quickly after interruption.
+- Stay local-first by default, with cloud fallback only when useful.
+- Prefer operator tooling over chatbot behavior.
+- Keep the system practical, inspectable, and easy to run every day.
 
-### Near-Term Roadmap
+## Completed Foundations
 
-- Add multi-project usage examples
-- Improve `oc-continue` formatting
-- Improve project listing with status categories
-- Add optional project detail view
+- Local OpenClaw setup on the Mac Mini.
+- Ollama configured as the primary local model host.
+- `qwen3:8b` integrated for local project context workflows.
+- OpenAI fallback available when local inference is not enough.
+- Git-backed project contexts under `~/Projects/<project-name>`.
+- Project-isolated `context.md` files for session continuity.
+- `history.log` for raw captured updates.
+- Clean capture pipeline that writes structured `# Project Context` markdown.
+- OpenClaw banner and terminal decoration cleanup for captured context.
+- Repo-tracked shell functions loaded from `~/.zshrc`.
+- `oc-plan` and `oc-next` for planning and next-action support.
+- `oc-capture` for updating project context.
+- `oc-continue` for resuming from saved project context.
+- `oc-projects` for listing tracked local project contexts.
+- Multi-input capture support for interactive paste, file input, and piped stdin.
 
-### Later Roadmap
+## Current Focus
 
-- Add Telegram intake after local project workflow is stable
-- Dedicated email intake only after Telegram pattern works
-- Richer project memory/history summaries
-- Possible lightweight project dashboard
+- Improve `oc-continue` operational summaries.
+- Refine project resume quality across real daily projects.
+- Reduce repetitive or AI-style wording in generated context.
+- Make the capture/resume loop more useful during ordinary work.
+- Keep project context compact, specific, and easy to inspect.
+
+## Near-Term Improvements
+
+- Add `oc-status <project>` for a focused single-project status view.
+- Add `oc-projects --detail` for richer multi-project listing.
+- Generate richer project summaries without bloating `context.md`.
+- Support commit-aware capture inputs from recent Git history.
+- Add lightweight project metadata for status, priority, or cadence.
+- Improve README ingestion for project bootstrap and refresh flows.
+- Improve project timestamps and status tracking in listing commands.
+
+## Longer-Term Vision
+
+- Telegram intake after the local project workflow is stable.
+- Dedicated operator email intake.
+- Voice-note transcription intake.
+- Lightweight local dashboard for project review.
+- Richer memory and history summarization.
+- Optional semantic search across project contexts.
+- Project relationship awareness for related workstreams.
 
 ## Repo Structure
 
