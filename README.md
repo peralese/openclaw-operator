@@ -22,7 +22,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
-- `oc-capture <project-name>` — capture current project state into `~/Projects/<project-name>/context.md`
+- `oc-capture <project-name> [input-file]` — capture current project state into `~/Projects/<project-name>/context.md`
 - `oc-continue <project-name>` — resume work from `~/Projects/<project-name>/context.md`
 
 These shell helpers are tracked in `scripts/openclaw-shell-functions.zsh` and loaded from `~/.zshrc`:
@@ -36,8 +36,9 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-continue <project-name>` to resume from the saved context for that project.
 - Run `oc-capture <project-name>` when parking project state.
-- Enter a raw status update, then press Ctrl-D.
+- Enter a raw status update interactively, pass an input file, or pipe stdin.
 - The raw update is appended to `~/Projects/<project-name>/history.log`.
+- `history.log` records whether the source was interactive input, a file, or stdin.
 - OpenClaw distills the update into the required `# Project Context` markdown structure.
 - The distilled context is written to `~/Projects/<project-name>/context.md`.
 - `oc-capture` starts saved context at the first exact `# Project Context` heading when present.
@@ -52,6 +53,9 @@ Example:
 
 ```zsh
 oc-projects
+oc-capture openclaw-operator
+oc-capture openclaw-operator README.md
+cat README.md | oc-capture family-cookbook
 ```
 
 ## Current Status

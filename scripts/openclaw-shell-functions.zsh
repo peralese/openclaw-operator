@@ -67,23 +67,38 @@ oc-projects() {
 # -------- Context Capture --------
 oc-capture() {
   local project_name="${1:-openclaw-operator}"
+  local input_file="$2"
   local project_dir="$HOME/Projects/$project_name"
   local context_file="$project_dir/context.md"
   local history_file="$project_dir/history.log"
-
-  mkdir -p "$project_dir"
-
-  echo "Enter project status update for: $project_name"
-  echo "Press Ctrl-D when finished:"
-  echo
-
+  local input_source="interactive"
   local input
-  input="$(cat)"
+
+  if [ -n "$input_file" ]; then
+    if [ ! -f "$input_file" ]; then
+      echo "Input file not found: $input_file"
+      return 1
+    fi
+
+    input_source="file: $input_file"
+    input="$(cat "$input_file")"
+  elif [ ! -t 0 ]; then
+    input_source="stdin"
+    input="$(cat)"
+  else
+    echo "Enter project status update for: $project_name"
+    echo "Press Ctrl-D when finished:"
+    echo
+
+    input="$(cat)"
+  fi
 
   if [ -z "$input" ]; then
     echo "No input received. Aborting."
     return 1
   fi
+
+  mkdir -p "$project_dir"
 
   local timestamp
   timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
@@ -91,6 +106,7 @@ oc-capture() {
   {
     echo
     echo "[$timestamp]"
+    echo "Source: $input_source"
     echo "$input"
   } >> "$history_file"
 
