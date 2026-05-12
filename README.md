@@ -21,6 +21,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
+- `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-capture <project-name>` — capture current project state into `~/Projects/<project-name>/context.md`
 - `oc-continue <project-name>` — resume work from `~/Projects/<project-name>/context.md`
 
@@ -32,6 +33,8 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 
 ## Capture / Continue Workflow
 
+- Run `oc-projects` to see available tracked projects with `context.md` files.
+- Run `oc-continue <project-name>` to resume from the saved context for that project.
 - Run `oc-capture <project-name>` when parking project state.
 - Enter a raw status update, then press Ctrl-D.
 - The raw update is appended to `~/Projects/<project-name>/history.log`.
@@ -44,7 +47,12 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
   - lines containing only `◇`
   - leading blank lines before real content
 - If filtering still produces empty output, `oc-capture` saves raw output or a diagnostic message for inspection and prints a warning.
-- Run `oc-continue <project-name>` to resume from the saved context for that project.
+
+Example:
+
+```zsh
+oc-projects
+```
 
 ## Current Status
 
@@ -53,6 +61,7 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 - OpenClaw configured to use Ollama first and OpenAI as fallback
 - `oc-plan` and `oc-next` are working concepts in the MVP
 - `oc-capture` and `oc-continue` MVP flow implemented
+- `oc-projects` lists tracked local project contexts without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now saves cleaned markdown without OpenClaw terminal decorations
 - Prompt rules reduce drift into speculative OpenClaw internals
@@ -61,7 +70,7 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 
 - Multi-project behavior needs validation across real project directories.
 - `oc-continue` formatting is still basic.
-- There is no project list or status command yet.
+- `oc-projects` does not yet group projects by status category.
 - Telegram and email intake are not implemented yet.
 
 ## Roadmap
@@ -77,11 +86,12 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 
 - Add multi-project usage examples
 - Improve `oc-continue` formatting
-- Add optional project list/status command
+- Improve project listing with status categories
+- Add optional project detail view
 
 ### Later Roadmap
 
-- Telegram-based context intake
+- Add Telegram intake after local project workflow is stable
 - Dedicated email intake only after Telegram pattern works
 - Richer project memory/history summaries
 - Possible lightweight project dashboard

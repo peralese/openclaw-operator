@@ -3,6 +3,67 @@
 # Source this file from ~/.zshrc:
 #   source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 
+# -------- Project Listing --------
+oc-projects() {
+  local projects_root="$HOME/Projects"
+  local found=0
+
+  if [ ! -d "$projects_root" ]; then
+    echo "No project contexts found under ~/Projects"
+    return 0
+  fi
+
+  while IFS= read -r project_dir; do
+    local context_file="$project_dir/context.md"
+
+    if [ ! -f "$context_file" ]; then
+      continue
+    fi
+
+    if [ "$found" -eq 0 ]; then
+      printf '%-20s %-16s   %s\n' "Project" "Last Updated" "Next Step"
+      printf '%-20s %-16s   %s\n' "--------------------" "----------------" "----------------------------------------"
+      found=1
+    fi
+
+    local project_name="$(basename "$project_dir")"
+
+    local last_updated="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$context_file")"
+
+    local next_step="$(
+      awk '
+        /^##[[:space:]]+Next Step[[:space:]]*$/ {
+          in_next_step = 1
+          next
+        }
+        in_next_step && /^##[[:space:]]+/ {
+          exit
+        }
+        in_next_step {
+          line = $0
+          sub(/^[[:space:]]*[-*+][[:space:]]+/, "", line)
+          sub(/^[[:space:]]+/, "", line)
+          sub(/[[:space:]]+$/, "", line)
+          if (line != "") {
+            print line
+            exit
+          }
+        }
+      ' "$context_file" | sed 's/[[:space:]][[:space:]]*/ /g'
+    )"
+
+    if [ -z "$next_step" ]; then
+      next_step="None"
+    fi
+
+    printf '%-20s %-16s   %s\n' "$project_name" "$last_updated" "$next_step"
+  done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort)
+
+  if [ "$found" -eq 0 ]; then
+    echo "No project contexts found under ~/Projects"
+  fi
+}
+
 # -------- Context Capture --------
 oc-capture() {
   local project_name="${1:-openclaw-operator}"
