@@ -261,21 +261,40 @@ oc-continue() {
   )"
 
   openclaw agent --agent main --session-id "$session_id" --message "
-You are a Session Continuity Agent.
+You are preparing an operational resume summary for this project.
 
 Use ONLY the project context below.
 Do NOT use prior conversation history.
 Do NOT invent tools, files, commands, workflows, or framework internals.
+Do NOT mention unrelated projects.
+Do NOT give generic productivity advice.
+Do NOT use motivational language.
+Do NOT use emoji.
+Do NOT use a markdown table.
+Avoid repetitive wording.
+Keep the full response under roughly 250 words.
+If the context is thin, say that briefly and still recommend one practical next step.
 
-Output format:
+Return exactly these sections and no others:
 
-Current State
-In Progress
-Open Issues
-Most Important Next Step
-Why This Matters
-Exact Actions
-Suggested Resume Prompt
+Project Status
+- 2-4 bullets summarizing the current project state
+
+Active Work
+- 1-3 bullets describing what is currently in progress
+
+Blockers / Risks
+- 0-3 bullets
+- If none are present in the context, write: None
+
+Recommended Next Action
+- One clear next action only
+
+First Step
+- One concrete first step the user can take immediately
+
+Resume Prompt
+- One concise prompt the user can use later
 
 Project:
 $project_name

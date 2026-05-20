@@ -23,7 +23,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-capture <project-name> [input-file]` — capture current project state into `~/Projects/<project-name>/context.md`
-- `oc-continue <project-name>` — resume work from `~/Projects/<project-name>/context.md`
+- `oc-continue <project-name>` — generate a concise operational resume summary from `~/Projects/<project-name>/context.md`
 
 These shell helpers are tracked in `scripts/openclaw-shell-functions.zsh` and loaded from `~/.zshrc`:
 
@@ -34,13 +34,15 @@ source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 ## Capture / Continue Workflow
 
 - Run `oc-projects` to see available tracked projects with `context.md` files.
-- Run `oc-continue <project-name>` to resume from the saved context for that project.
+- Run `oc-continue <project-name>` to resume from the saved context for that project when you need a short, practical handoff back into real work.
 - Run `oc-capture <project-name>` when parking project state.
 - Enter a raw status update interactively, pass an input file, or pipe stdin.
 - The raw update is appended to `~/Projects/<project-name>/history.log`.
 - `history.log` records whether the source was interactive input, a file, or stdin.
 - OpenClaw distills the update into the required `# Project Context` markdown structure.
 - The distilled context is written to `~/Projects/<project-name>/context.md`.
+- `oc-continue` reads only `context.md` and returns these sections: `Project Status`, `Active Work`, `Blockers / Risks`, `Recommended Next Action`, `First Step`, and `Resume Prompt`.
+- `oc-continue` is intended for restarting work after an interruption without rereading the full project context.
 - `oc-capture` starts saved context at the first exact `# Project Context` heading when present.
 - If that heading is missing, `oc-capture` falls back to stripping OpenClaw CLI decorations:
   - lines beginning with `🦞 OpenClaw`
@@ -56,6 +58,7 @@ oc-projects
 oc-capture openclaw-operator
 oc-capture openclaw-operator README.md
 cat README.md | oc-capture family-cookbook
+oc-continue openclaw-operator
 ```
 
 ## Current Status
@@ -68,12 +71,12 @@ cat README.md | oc-capture family-cookbook
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now saves cleaned markdown without OpenClaw terminal decorations
+- `oc-continue` returns concise operational resume summaries with fixed sections
 - Prompt rules reduce drift into speculative OpenClaw internals
 
 ## Known Limitations
 
 - Multi-project behavior needs validation across real project directories.
-- `oc-continue` formatting is still basic.
 - `oc-projects` does not yet group projects by status category.
 - Telegram and email intake are not implemented yet.
 
@@ -105,24 +108,20 @@ cat README.md | oc-capture family-cookbook
 - `oc-continue` for resuming from saved project context.
 - `oc-projects` for listing tracked local project contexts.
 - Multi-input capture support for interactive paste, file input, and piped stdin.
+- Improved `oc-continue` operational summaries.
 
 ## Current Focus
 
-- Improve `oc-continue` operational summaries.
-- Refine project resume quality across real daily projects.
-- Reduce repetitive or AI-style wording in generated context.
-- Make the capture/resume loop more useful during ordinary work.
-- Keep project context compact, specific, and easy to inspect.
+- Validate resume quality across multiple projects.
+- Add `oc-status <project>`.
+- Improve project metadata/status tracking.
 
 ## Near-Term Improvements
 
-- Add `oc-status <project>` for a focused single-project status view.
 - Add `oc-projects --detail` for richer multi-project listing.
 - Generate richer project summaries without bloating `context.md`.
 - Support commit-aware capture inputs from recent Git history.
-- Add lightweight project metadata for status, priority, or cadence.
 - Improve README ingestion for project bootstrap and refresh flows.
-- Improve project timestamps and status tracking in listing commands.
 
 ## Longer-Term Vision
 
