@@ -64,6 +64,124 @@ oc-projects() {
   fi
 }
 
+# -------- Project Status --------
+oc-status() {
+  local project_name="$1"
+
+  if [ -z "$project_name" ]; then
+    echo "Usage: oc-status <project>"
+    return 1
+  fi
+
+  local project_dir="$HOME/Projects/$project_name"
+  local context_file="$project_dir/context.md"
+  local display_context_file="~/Projects/$project_name/context.md"
+
+  if [ ! -f "$context_file" ]; then
+    echo "Context file not found: $display_context_file"
+    return 1
+  fi
+
+  local last_updated
+  last_updated="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$context_file")"
+
+  awk -v fallback_project="$project_name" -v last_updated="$last_updated" '
+    function ltrim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      return s
+    }
+
+    function rtrim(s) {
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+
+    function trim(s) {
+      return rtrim(ltrim(s))
+    }
+
+    function append_section(name, line) {
+      line = rtrim(line)
+
+      if (name == "Project") {
+        if (project == "" && trim(line) != "") {
+          project = trim(line)
+        }
+        return
+      }
+
+      if (line ~ /^[[:space:]]*$/) {
+        if (section_text[name] != "") {
+          pending_blank[name] = 1
+        }
+        return
+      }
+
+      if (pending_blank[name]) {
+        section_text[name] = section_text[name] "\n"
+        pending_blank[name] = 0
+      }
+
+      section_text[name] = section_text[name] line "\n"
+    }
+
+    function print_section(name, value) {
+      sub(/\n+$/, "", value)
+      print ""
+      print name
+      if (value == "") {
+        print "None"
+      } else {
+        print value
+      }
+    }
+
+    BEGIN {
+      wanted["Project"] = 1
+      wanted["Current State"] = 1
+      wanted["In Progress"] = 1
+      wanted["Open Issues"] = 1
+      wanted["Next Step"] = 1
+      wanted["Suggested Resume Prompt"] = 1
+      order[1] = "Current State"
+      order[2] = "In Progress"
+      order[3] = "Open Issues"
+      order[4] = "Next Step"
+      order[5] = "Suggested Resume Prompt"
+    }
+
+    {
+      line = $0
+      sub(/\r$/, "", line)
+      header = rtrim(line)
+
+      if (header ~ /^##[[:space:]]+/) {
+        current = header
+        sub(/^##[[:space:]]+/, "", current)
+        current = rtrim(current)
+        next
+      }
+
+      if (current in wanted) {
+        append_section(current, line)
+      }
+    }
+
+    END {
+      if (project == "") {
+        project = fallback_project
+      }
+
+      print "Project: " project
+      print "Last Updated: " last_updated
+
+      for (i = 1; i <= 5; i++) {
+        print_section(order[i], section_text[order[i]])
+      }
+    }
+  ' "$context_file"
+}
+
 # -------- Context Capture --------
 oc-capture() {
   local project_name="${1:-openclaw-operator}"
