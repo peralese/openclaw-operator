@@ -99,45 +99,43 @@ oc-continue openclaw-operator
 
 ## Completed Foundations
 
-- Local OpenClaw setup on the Mac Mini.
-- Ollama configured as the primary local model host.
-- `qwen3:8b` integrated for local project context workflows.
-- OpenAI fallback available when local inference is not enough.
+- Local OpenClaw + Ollama setup on the Mac Mini.
+- `qwen3:8b` primary model with OpenAI fallback.
 - Git-backed project contexts under `~/Projects/<project-name>`.
-- Project-isolated `context.md` files for session continuity.
-- `history.log` for raw captured updates.
-- Clean capture pipeline that writes structured `# Project Context` markdown.
-- OpenClaw banner and terminal decoration cleanup for captured context.
-- Repo-tracked shell functions loaded from `~/.zshrc`.
+- Each tracked project uses `context.md` and `history.log`.
+- Repo-tracked shell functions in `scripts/openclaw-shell-functions.zsh`.
+- `.zshrc` sources the repo-tracked shell script.
 - `oc-plan` and `oc-next` for planning and next-action support.
-- `oc-capture` for updating project context.
-- `oc-continue` for resuming from saved project context.
-- `oc-projects` for listing tracked local project contexts.
-- `oc-status` for deterministic project detail views.
-- Multi-input capture support for interactive paste, file input, and piped stdin.
-- Improved `oc-continue` operational summaries.
+- `oc-capture <project>` with interactive, file, and piped input.
+- Clean `context.md` generation with OpenClaw banner cleanup.
+- `oc-continue <project>` for LLM-assisted resume summaries.
+- `oc-projects` for portfolio/project listing.
+- `oc-status <project>` for deterministic project detail views.
+- Project isolation validated with at least `openclaw-operator` and `family-cookbook`.
 
 ## Current Focus
 
-- Improve `oc-projects --detail`.
 - Validate README ingestion across more real projects.
-- Prepare for Telegram intake later.
+- Confirm `oc-capture <project> README.md` produces accurate operational context.
+- Compare file-based capture against manual status updates.
+- Identify where README documentation is stale, too broad, or not operational enough.
 
-## Near-Term Improvements
+## Near-Term Roadmap
 
-- Improve `oc-projects --detail` for richer multi-project listing.
-- Validate README ingestion across more real projects.
-- Prepare for Telegram intake after local project workflows stay stable.
+- Add or improve README ingestion guidance.
+- Add `oc-projects --detail` or an equivalent richer project listing.
+- Improve project metadata/status tracking.
+- Add optional commit-summary capture workflow.
+- Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, and `oc-projects`.
 
-## Longer-Term Vision
+## Later Roadmap
 
-- Telegram intake after the local project workflow is stable.
-- Dedicated operator email intake.
-- Voice-note transcription intake.
+- Telegram-based project context intake.
+- Dedicated email intake after Telegram pattern is proven.
+- Voice-note/transcription-based capture.
 - Lightweight local dashboard for project review.
-- Richer memory and history summarization.
-- Optional semantic search across project contexts.
-- Project relationship awareness for related workstreams.
+- Semantic search across project contexts/history.
+- Relationship awareness between projects.
 
 ## Repo Structure
 
