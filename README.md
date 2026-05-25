@@ -78,11 +78,12 @@ oc-continue openclaw-operator
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now saves cleaned markdown without OpenClaw terminal decorations
 - `oc-continue` returns concise operational resume summaries with fixed sections
+- Project validation showed framework behavior and project isolation are working correctly
 - Prompt rules reduce drift into speculative OpenClaw internals
 
 ## Known Limitations
 
-- Multi-project behavior needs validation across real project directories.
+- README ingestion can over-weight setup, architecture, or feature documentation when operational sections are sparse.
 - `oc-projects` does not yet group projects by status category.
 - Telegram and email intake are not implemented yet.
 
@@ -112,20 +113,32 @@ oc-continue openclaw-operator
 - `oc-projects` for portfolio/project listing.
 - `oc-status <project>` for deterministic project detail views.
 - Project isolation validated with at least `openclaw-operator` and `family-cookbook`.
+- Multi-project validation across `family-cookbook`, `Knowledge-Base`, `Plex-Catalogue`, `Simple-Doc-Anonymizer`, and `openclaw-operator`.
+- `oc-projects` confirmed to extract `Next Step` values when present.
+
+Project validation showed the framework is functioning correctly; current effort is improving the quality of operational context extracted from project documentation.
 
 ## Current Focus
 
-- Validate README ingestion across more real projects.
-- Confirm `oc-capture <project> README.md` produces accurate operational context.
-- Compare file-based capture against manual status updates.
-- Identify where README documentation is stale, too broad, or not operational enough.
+- Improve README ingestion quality.
+- Prioritize operational content over setup content.
+- Improve extraction of:
+  - Next Step
+  - TODO
+  - Roadmap
+  - Open Issues
+  - In Progress
+- Reduce installation/architecture dominance in context generation.
+- Validate README ingestion across additional real projects.
 
 ## Near-Term Roadmap
 
-- Add or improve README ingestion guidance.
+- Improve `oc-capture` prompt weighting for README ingestion.
+- Add README section prioritization rules.
+- Add optional fallback logic when README lacks actionable next steps.
+- Consider commit-summary or changelog ingestion.
 - Add `oc-projects --detail` or an equivalent richer project listing.
 - Improve project metadata/status tracking.
-- Add optional commit-summary capture workflow.
 - Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, and `oc-projects`.
 
 ## Later Roadmap
