@@ -8,9 +8,10 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 
 ## High-Level Architecture
 
-- Local-first workflow powered by OpenClaw
-- Primary model host: Ollama with `qwen3:8b`
-- Fallback support for OpenAI when needed
+- Hybrid workflow powered by OpenClaw and the OpenAI API
+- Initial synthesis backend: OpenAI API by default, using `OPENCLAW_CAPTURE_MODEL` or `gpt-5`
+- Incremental update backend: local OpenClaw/Ollama by default
+- Primary local model host: Ollama with `qwen3:8b`
 - Shell-based flow with lightweight markdown persistence
 - Core agent: Project Context Intake & Resume Agent
 - Project source of truth: `~/Projects/<project-name>`
@@ -23,7 +24,8 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-status <project-name>` — show deterministic project details from `~/Projects/<project-name>/context.md` without calling OpenClaw or an LLM
-- `oc-capture <project-name> [input-file]` — capture current project state into `~/Projects/<project-name>/context.md`
+- `oc-capture <project-name> [input-file]` — create the initial project context from raw project state
+- `oc-update <project-name> [input-file]` — apply a short update to an existing `~/Projects/<project-name>/context.md`
 - `oc-continue <project-name>` — generate a concise operational resume summary from `~/Projects/<project-name>/context.md`
 
 These shell helpers are tracked in `scripts/openclaw-shell-functions.zsh` and loaded from `~/.zshrc`:
@@ -32,28 +34,31 @@ These shell helpers are tracked in `scripts/openclaw-shell-functions.zsh` and lo
 source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 ```
 
+The shell helpers load local API/backend settings from `.env` by default. Copy `.env.example` to `.env`, add `OPENAI_API_KEY`, and keep `.env` uncommitted. Existing exported shell variables take precedence over `.env` values, and blank `.env` values are ignored.
+
 ## Capture / Continue Workflow
 
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-status <project-name>` to inspect the saved context for one project without invoking OpenClaw.
 - Run `oc-continue <project-name>` to resume from the saved context for that project when you need a short, practical handoff back into real work.
-- Run `oc-capture <project-name>` when parking project state.
+- Run `oc-capture <project-name>` for first-pass synthesis from a README, HTML README, docs export, transcript, or other broad project source.
+- Run `oc-update <project-name>` for short follow-up notes after `context.md` already exists.
 - Enter a raw status update interactively, pass an input file, or pipe stdin.
 - The raw update is appended to `~/Projects/<project-name>/history.log`.
 - `history.log` records whether the source was interactive input, a file, or stdin.
-- OpenClaw distills the update into the required `# Project Context` markdown structure.
-- The distilled context is written to `~/Projects/<project-name>/context.md`.
+- `oc-capture` preprocesses `.html` and `.htm` inputs by stripping scripts, styles, page chrome, tags, and repeated whitespace.
+- `oc-capture` refuses to send processed inputs larger than `OPENCLAW_CAPTURE_MAX_CHARS` (`120000` by default).
+- `oc-capture` uses the OpenAI API by default. Set `OPENCLAW_CAPTURE_BACKEND=openclaw` to force the local OpenClaw backend.
+- `oc-update` uses the local OpenClaw backend by default. Set `OPENCLAW_UPDATE_BACKEND=openai` to use the OpenAI API for updates.
+- `oc-update` refuses update inputs larger than `OPENCLAW_UPDATE_MAX_CHARS` (`60000` by default).
+- The model output must contain a valid `# Project Context` structure before `context.md` is overwritten.
+- Failed capture or update output is saved to `capture-failed-*.log` or `update-failed-*.log` under the project directory.
+- If capture or update fails, `context.md` is not overwritten.
 - `oc-status` reads only `context.md` and returns the saved `Current State`, `In Progress`, `Open Issues`, `Next Step`, and `Suggested Resume Prompt` sections.
 - `oc-continue` reads only `context.md` and returns these LLM-generated sections: `Project Status`, `Active Work`, `Blockers / Risks`, `Recommended Next Action`, `First Step`, and `Resume Prompt`.
 - `oc-projects` is the portfolio list, `oc-status <project-name>` is deterministic project detail, and `oc-continue <project-name>` is LLM-assisted resume guidance.
 - `oc-continue` is intended for restarting work after an interruption without rereading the full project context.
-- `oc-capture` starts saved context at the first exact `# Project Context` heading when present.
-- If that heading is missing, `oc-capture` falls back to stripping OpenClaw CLI decorations:
-  - lines beginning with `🦞 OpenClaw`
-  - lines containing only `│`
-  - lines containing only `◇`
-  - leading blank lines before real content
-- If filtering still produces empty output, `oc-capture` saves raw output or a diagnostic message for inspection and prints a warning.
+- `oc-capture` and `oc-update` start saved context at the first exact `# Project Context` heading and strip OpenClaw terminal decorations before validation.
 
 Example:
 
@@ -62,6 +67,8 @@ oc-projects
 oc-status openclaw-operator
 oc-capture openclaw-operator
 oc-capture openclaw-operator README.md
+oc-capture repo-process-baseline readme.html
+oc-update openclaw-operator update-notes.md
 cat README.md | oc-capture family-cookbook
 oc-continue openclaw-operator
 ```
@@ -70,13 +77,16 @@ oc-continue openclaw-operator
 
 - Ollama installed and working
 - `qwen3:8b` available locally
-- OpenClaw configured to use Ollama first and OpenAI as fallback
+- `oc-capture` now uses OpenAI API first-pass synthesis by default
+- `oc-update` now uses local OpenClaw/Ollama incremental updates by default
 - `oc-plan` and `oc-next` are working concepts in the MVP
 - `oc-capture` and `oc-continue` MVP flow implemented
+- `oc-update` incremental context update flow implemented
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
 - `oc-status` shows deterministic project details without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
-- `oc-capture` now saves cleaned markdown without OpenClaw terminal decorations
+- `oc-capture` now preprocesses HTML inputs and refuses oversized processed input
+- `oc-capture` and `oc-update` do not overwrite `context.md` unless valid `# Project Context` output is produced
 - `oc-continue` returns concise operational resume summaries with fixed sections
 - Project validation showed framework behavior and project isolation are working correctly
 - Prompt rules reduce drift into speculative OpenClaw internals
@@ -101,13 +111,14 @@ oc-continue openclaw-operator
 ## Completed Foundations
 
 - Local OpenClaw + Ollama setup on the Mac Mini.
-- `qwen3:8b` primary model with OpenAI fallback.
+- `qwen3:8b` primary local update model with OpenAI first-pass capture support.
 - Git-backed project contexts under `~/Projects/<project-name>`.
 - Each tracked project uses `context.md` and `history.log`.
 - Repo-tracked shell functions in `scripts/openclaw-shell-functions.zsh`.
 - `.zshrc` sources the repo-tracked shell script.
 - `oc-plan` and `oc-next` for planning and next-action support.
 - `oc-capture <project>` with interactive, file, and piped input.
+- `oc-update <project>` with interactive, file, and piped input for short incremental updates.
 - Clean `context.md` generation with OpenClaw banner cleanup.
 - `oc-continue <project>` for LLM-assisted resume summaries.
 - `oc-projects` for portfolio/project listing.

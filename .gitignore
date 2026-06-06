@@ -1,0 +1,5 @@
+.env
+.venv/
+context.backup-*.md
+capture-failed-*.log
+update-failed-*.log

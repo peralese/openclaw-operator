@@ -3,6 +3,50 @@
 # Source this file from ~/.zshrc:
 #   source "$HOME/Projects/openclaw-operator/scripts/openclaw-shell-functions.zsh"
 
+oc__load_env() {
+  local env_file="${OPENCLAW_ENV_FILE:-$HOME/Projects/openclaw-operator/.env}"
+
+  if [ ! -f "$env_file" ]; then
+    return 0
+  fi
+
+  local line key value current_value
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    if [ -z "$line" ] || [[ "$line" != *=* ]]; then
+      continue
+    fi
+
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    value="${value%\"}"
+    value="${value#\"}"
+    value="${value%\'}"
+    value="${value#\'}"
+
+    if [[ ! "$key" =~ '^[A-Za-z_][A-Za-z0-9_]*$' ]] || [ -z "$value" ]; then
+      continue
+    fi
+
+    current_value="${(P)key}"
+    if [ -n "$current_value" ]; then
+      continue
+    fi
+
+    export "$key=$value"
+  done < "$env_file"
+}
+
+oc__load_env
+
 # -------- Project Listing --------
 oc-projects() {
   local projects_root="$HOME/Projects"
@@ -182,44 +226,12 @@ oc-status() {
   ' "$context_file"
 }
 
-# -------- Context Capture --------
-oc-capture() {
-  local project_name="${1:-openclaw-operator}"
-  local input_file="$2"
-  local project_dir="$HOME/Projects/$project_name"
-  local context_file="$project_dir/context.md"
-  local history_file="$project_dir/history.log"
-  local input_source="interactive"
-  local input
-
-  if [ -n "$input_file" ]; then
-    if [ ! -f "$input_file" ]; then
-      echo "Input file not found: $input_file"
-      return 1
-    fi
-
-    input_source="file: $input_file"
-    input="$(cat "$input_file")"
-  elif [ ! -t 0 ]; then
-    input_source="stdin"
-    input="$(cat)"
-  else
-    echo "Enter project status update for: $project_name"
-    echo "Press Ctrl-D when finished:"
-    echo
-
-    input="$(cat)"
-  fi
-
-  if [ -z "$input" ]; then
-    echo "No input received. Aborting."
-    return 1
-  fi
-
-  mkdir -p "$project_dir"
-
-  local timestamp
-  timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+# -------- Context Intake Helpers --------
+oc__append_history() {
+  local history_file="$1"
+  local timestamp="$2"
+  local input_source="$3"
+  local input="$4"
 
   {
     echo
@@ -227,17 +239,91 @@ oc-capture() {
     echo "Source: $input_source"
     echo "$input"
   } >> "$history_file"
+}
 
-  local session_id
-  session_id="capture-${project_name}-$(date +%s)"
+oc__strip_html_file() {
+  local input_file="$1"
+  local output_file="$2"
 
-  local raw_output_file
-  raw_output_file="$(mktemp)"
+  perl -0pe '
+    s/<script\b[^>]*>.*?<\/script>/ /gis;
+    s/<style\b[^>]*>.*?<\/style>/ /gis;
+    s/<nav\b[^>]*>.*?<\/nav>/ /gis;
+    s/<footer\b[^>]*>.*?<\/footer>/ /gis;
+    s/<header\b[^>]*>.*?<\/header>/ /gis;
+    s/<(h[1-6]|p|li|br|div|section|article|tr)\b[^>]*>/\n/gis;
+    s/<\/(h[1-6]|p|li|div|section|article|tr)>/\n/gis;
+    s/<[^>]+>/ /g;
+    s/&nbsp;/ /g;
+    s/&amp;/\&/g;
+    s/&lt;/</g;
+    s/&gt;/>/g;
+    s/&quot;/"/g;
+    s/&#39;/'"'"'/g;
+    s/[ \t]+/ /g;
+    s/\n[ \t]+/\n/g;
+    s/[ \t]+\n/\n/g;
+    s/\n{3,}/\n\n/g;
+  ' "$input_file" > "$output_file"
+}
 
-  local filtered_output_file
-  filtered_output_file="$(mktemp)"
+oc__clean_agent_output() {
+  local raw_output_file="$1"
+  local filtered_output_file="$2"
 
-  openclaw agent --agent main --session-id "$session_id" --message "
+  awk '
+    {
+      gsub(/\033\[[0-9;?]*[A-Za-z]/, "")
+    }
+    found {
+      print
+      next
+    }
+    index($0, "# Project Context") {
+      found = 1
+      print "# Project Context"
+    }
+  ' "$raw_output_file" > "$filtered_output_file"
+}
+
+oc__has_valid_context_output() {
+  local context_output_file="$1"
+
+  awk '
+    /^# Project Context[[:space:]]*$/ { found_context = 1 }
+    /^## Project[[:space:]]*$/ { found_project = 1 }
+    /^## Current State[[:space:]]*$/ { found_current = 1 }
+    /^## Next Step[[:space:]]*$/ { found_next = 1 }
+    END {
+      exit !(found_context && found_project && found_current && found_next)
+    }
+  ' "$context_output_file"
+}
+
+oc__save_failed_capture() {
+  local raw_output_file="$1"
+  local debug_file="$2"
+
+  awk '
+    {
+      gsub(/\033\[[0-9;?]*[A-Za-z]/, "")
+    }
+    /^🦞 OpenClaw/ { next }
+    /^[[:space:]]*│[[:space:]]*$/ { next }
+    /^[[:space:]]*◇[[:space:]]*$/ { next }
+    !started && /^[[:space:]]*$/ { next }
+    {
+      started = 1
+      print
+    }
+  ' "$raw_output_file" > "$debug_file"
+}
+
+oc__context_intake_prompt() {
+  local project_name="$1"
+  local input="$2"
+
+  cat <<EOF
 You are a Project Context Intake Agent.
 
 TASK:
@@ -250,10 +336,10 @@ CRITICAL CONTEXT ISOLATION RULES:
 - Do NOT import details from unrelated projects
 - Do NOT merge this update with any other project
 - Use explicit information from the raw update first
-- You may make conservative operational inferences from the raw update when they are useful, but label inferred next steps with \"Inferred: \"
+- You may make conservative operational inferences from the raw update when they are useful, but label inferred next steps with "Inferred: "
 - Do NOT mention OpenClaw unless the raw update is specifically about OpenClaw
 - Do NOT invent commands, files, OpenClaw internals, cron jobs, dashboards, automations, issues, features, or project details
-- If a field is unknown, write \"None\"
+- If a field is unknown, write "None"
 
 README AND DOCUMENTATION INGESTION RULES:
 - Prioritize operational context over generic documentation
@@ -270,7 +356,7 @@ NEXT STEP SELECTION RULES:
 - First look for explicit next-step language in sections named or resembling Next Step, Next Steps, TODO, Roadmap, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Recent Work, or Changelog
 - If no explicit next step exists, infer one from the most operational gap, risk, known limitation, failing workflow, unfinished roadmap item, or missing validation described in the raw update
 - If inferring from gaps or limitations, choose the action that most directly improves usability, reliability, correctness, validation, or documentation
-- Use \"No explicit next step found in README\" only when the raw update provides no useful operational gap, risk, limitation, roadmap item, TODO, unfinished work, or validation target
+- Use "No explicit next step found in README" only when the raw update provides no useful operational gap, risk, limitation, roadmap item, TODO, unfinished work, or validation target
 
 OUTPUT RULES:
 - Output exactly the markdown structure below
@@ -305,60 +391,359 @@ REQUIRED OUTPUT FORMAT:
 - If no explicit next step exists and no useful conservative inference can be made from gaps, risks, limitations, roadmap items, TODOs, unfinished work, or validation targets, say exactly: No explicit next step found in README
 
 ## Suggested Resume Prompt
-\"<one concise prompt the user can paste later>\"
+"<one concise prompt the user can paste later>"
 
 PROJECT NAME:
 $project_name
 
 RAW PROJECT UPDATE:
 $input
-" > "$raw_output_file"
+EOF
+}
 
-  awk '
-    {
-      gsub(/\033\[[0-9;?]*[A-Za-z]/, "")
-    }
-    found {
-      print
-      next
-    }
-    index($0, "# Project Context") {
-      found = 1
-      print "# Project Context"
-    }
-  ' "$raw_output_file" > "$filtered_output_file"
+oc__context_update_prompt() {
+  local project_name="$1"
+  local context="$2"
+  local input="$3"
 
-  if [ ! -s "$filtered_output_file" ]; then
-    echo "Warning: # Project Context not found; saved decoration-stripped output for inspection."
+  cat <<EOF
+You are a Project Context Update Agent.
 
-    awk '
-      {
-        gsub(/\033\[[0-9;?]*[A-Za-z]/, "")
-      }
-      /^🦞 OpenClaw/ { next }
-      /^[[:space:]]*│[[:space:]]*$/ { next }
-      /^[[:space:]]*◇[[:space:]]*$/ { next }
-      !started && /^[[:space:]]*$/ { next }
-      {
-        started = 1
-        print
-      }
-    ' "$raw_output_file" > "$filtered_output_file"
+TASK:
+Update the existing project context using the new project update below.
+
+RULES:
+- Treat CURRENT CONTEXT and NEW UPDATE as the only sources of truth
+- Preserve stable facts from CURRENT CONTEXT unless NEW UPDATE clearly contradicts them
+- Do NOT re-synthesize the project from scratch
+- Do NOT import prior agent memory, other project contexts, or unrelated details
+- Prefer explicit information from NEW UPDATE
+- You may make conservative operational inferences from NEW UPDATE when useful, but label inferred next steps with "Inferred: "
+- Do NOT invent commands, files, OpenClaw internals, cron jobs, dashboards, automations, issues, features, or project details
+- Keep the output compact and deterministic
+- Continue requiring one concrete, verb-led Next Step when possible
+
+OUTPUT RULES:
+- Output exactly the markdown structure below
+- Use short bullets only in bullet sections
+- Keep the final context under roughly 500 words
+- Do not include commentary before or after the structured output
+- Do not include validation commentary
+- Do not include confidence scores
+- Do not include extra sections
+
+REQUIRED OUTPUT FORMAT:
+
+# Project Context
+
+## Project
+<project name or inferred name>
+
+## Current State
+- <3-5 bullets about what is implemented, working, true now, or the current maturity/working state>
+
+## In Progress
+- <1-4 bullets about active work or inferred active work>
+- If none found, say exactly: No explicit in-progress work found
+
+## Open Issues
+- <1-5 bullets about gaps, risks, missing pieces, unclear docs, limitations, or weak operational evidence>
+- If none found, say exactly: No explicit open issues found
+
+## Next Step
+- <exactly one most actionable, concrete, verb-led next step>
+- If inferred, start with: Inferred:
+- If no explicit next step exists and no useful conservative inference can be made, say exactly: No explicit next step found
+
+## Suggested Resume Prompt
+"<one concise prompt the user can paste later>"
+
+PROJECT NAME:
+$project_name
+
+CURRENT CONTEXT:
+$context
+
+NEW UPDATE:
+$input
+EOF
+}
+
+oc__run_openai_response() {
+  local prompt="$1"
+  local output_file="$2"
+  local model="${3:-${OPENCLAW_CAPTURE_MODEL:-gpt-5}}"
+  local response_file
+  response_file="$(mktemp)"
+
+  if [ -z "$OPENAI_API_KEY" ]; then
+    echo "OPENAI_API_KEY is not set." > "$output_file"
+    rm -f "$response_file"
+    return 1
   fi
 
-  if [ ! -s "$filtered_output_file" ] && [ -s "$raw_output_file" ]; then
-    tee "$context_file" < "$raw_output_file"
-    echo "Warning: filtered output was empty; saved raw output for inspection."
-  elif [ ! -s "$filtered_output_file" ]; then
-    printf '%s\n' "Warning: filtered output was empty; saved raw output for inspection." | tee "$context_file"
+  if ! jq -n --arg model "$model" --arg input "$prompt" '{model: $model, input: $input}' \
+    | curl -sS https://api.openai.com/v1/responses \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $OPENAI_API_KEY" \
+      -d @- > "$response_file"; then
+    cp "$response_file" "$output_file"
+    rm -f "$response_file"
+    return 1
+  fi
+
+  if jq -e '.error' "$response_file" >/dev/null 2>&1; then
+    jq -r '.error.message // .error // .' "$response_file" > "$output_file"
+    rm -f "$response_file"
+    return 1
+  fi
+
+  jq -r '
+    .output_text //
+    ([.output[]?.content[]? | select(.type == "output_text") | .text] | join("\n")) //
+    empty
+  ' "$response_file" > "$output_file"
+
+  rm -f "$response_file"
+}
+
+oc__run_openclaw_agent() {
+  local session_id="$1"
+  local prompt="$2"
+  local output_file="$3"
+
+  openclaw agent --agent main --session-id "$session_id" --message "$prompt" > "$output_file"
+}
+
+# -------- Context Capture --------
+oc-capture() {
+  local project_name="${1:-openclaw-operator}"
+  local input_file="$2"
+  local project_dir="$HOME/Projects/$project_name"
+  local context_file="$project_dir/context.md"
+  local history_file="$project_dir/history.log"
+  local input_source="interactive"
+  local input
+  local processed_input
+  local processed_input_file
+  local raw_input_file
+
+  if [ -n "$input_file" ]; then
+    if [ ! -f "$input_file" ]; then
+      echo "Input file not found: $input_file"
+      return 1
+    fi
+
+    input_source="file: $input_file"
+    input="$(cat "$input_file")"
+  elif [ ! -t 0 ]; then
+    input_source="stdin"
+    input="$(cat)"
   else
-    tee "$context_file" < "$filtered_output_file"
+    echo "Enter project status update for: $project_name"
+    echo "Press Ctrl-D when finished:"
+    echo
+
+    input="$(cat)"
   fi
 
+  if [ -z "$input" ]; then
+    echo "No input received. Aborting."
+    return 1
+  fi
+
+  mkdir -p "$project_dir"
+
+  local timestamp
+  timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+
+  oc__append_history "$history_file" "$timestamp" "$input_source" "$input"
+
+  raw_input_file="$(mktemp)"
+  processed_input_file="$(mktemp)"
+  printf '%s\n' "$input" > "$raw_input_file"
+
+  case "$input_file" in
+    *.html|*.htm|*.HTML|*.HTM)
+      oc__strip_html_file "$raw_input_file" "$processed_input_file"
+      input_source="$input_source (HTML preprocessed)"
+      ;;
+    *)
+      cp "$raw_input_file" "$processed_input_file"
+      ;;
+  esac
+
+  local max_chars="${OPENCLAW_CAPTURE_MAX_CHARS:-120000}"
+  local processed_chars
+  processed_chars="$(wc -c < "$processed_input_file" | tr -d ' ')"
+
+  if [ "$processed_chars" -gt "$max_chars" ]; then
+    rm -f "$raw_input_file" "$processed_input_file"
+    echo "Capture failed; context.md was not overwritten."
+    echo "Processed input is too large: $processed_chars chars; limit is $max_chars chars."
+    echo "Original raw update was still appended to: $history_file"
+    echo "Try a smaller input, a cleaner README body, or raise OPENCLAW_CAPTURE_MAX_CHARS."
+    return 1
+  fi
+
+  processed_input="$(cat "$processed_input_file")"
+  rm -f "$raw_input_file" "$processed_input_file"
+
+  local session_id
+  session_id="capture-${project_name}-$(date +%s)"
+
+  local raw_output_file
+  raw_output_file="$(mktemp)"
+
+  local filtered_output_file
+  filtered_output_file="$(mktemp)"
+
+  local prompt
+  prompt="$(oc__context_intake_prompt "$project_name" "$processed_input")"
+
+  local backend="${OPENCLAW_CAPTURE_BACKEND:-openai}"
+  local backend_status=0
+
+  case "$backend" in
+    openai)
+      oc__run_openai_response "$prompt" "$raw_output_file" "${OPENCLAW_CAPTURE_MODEL:-gpt-5}" || backend_status=$?
+      ;;
+    openclaw|local)
+      oc__run_openclaw_agent "$session_id" "$prompt" "$raw_output_file" || backend_status=$?
+      ;;
+    *)
+      printf 'Unknown OPENCLAW_CAPTURE_BACKEND: %s\n' "$backend" > "$raw_output_file"
+      backend_status=1
+      ;;
+  esac
+
+  oc__clean_agent_output "$raw_output_file" "$filtered_output_file"
+
+  local debug_file="$project_dir/capture-failed-$(date +%Y%m%d-%H%M%S).log"
+
+  if [ "$backend_status" -ne 0 ] || ! oc__has_valid_context_output "$filtered_output_file"; then
+    oc__save_failed_capture "$raw_output_file" "$debug_file"
+    rm -f "$raw_output_file" "$filtered_output_file"
+    echo "Capture failed; context.md was not overwritten."
+    echo "Debug output saved to: $debug_file"
+    echo "Appended raw update to: $history_file"
+    return 1
+  fi
+
+  cp "$filtered_output_file" "$context_file"
   rm -f "$raw_output_file" "$filtered_output_file"
 
   echo
   echo "Saved distilled context to: $context_file"
+  echo "Appended raw update to: $history_file"
+}
+
+oc-update() {
+  local project_name="${1:-openclaw-operator}"
+  local input_file="$2"
+  local project_dir="$HOME/Projects/$project_name"
+  local context_file="$project_dir/context.md"
+  local history_file="$project_dir/history.log"
+  local input_source="interactive"
+  local input
+
+  if [ ! -f "$context_file" ]; then
+    echo "Context file not found: $context_file"
+    echo "Run oc-capture first to create an initial context."
+    return 1
+  fi
+
+  if [ -n "$input_file" ]; then
+    if [ ! -f "$input_file" ]; then
+      echo "Input file not found: $input_file"
+      return 1
+    fi
+
+    input_source="file: $input_file"
+    input="$(cat "$input_file")"
+  elif [ ! -t 0 ]; then
+    input_source="stdin"
+    input="$(cat)"
+  else
+    echo "Enter project update for: $project_name"
+    echo "Press Ctrl-D when finished:"
+    echo
+
+    input="$(cat)"
+  fi
+
+  if [ -z "$input" ]; then
+    echo "No input received. Aborting."
+    return 1
+  fi
+
+  mkdir -p "$project_dir"
+
+  local timestamp
+  timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+  oc__append_history "$history_file" "$timestamp" "update: $input_source" "$input"
+
+  local max_chars="${OPENCLAW_UPDATE_MAX_CHARS:-60000}"
+  local input_chars
+  input_chars="$(printf '%s' "$input" | wc -c | tr -d ' ')"
+
+  if [ "$input_chars" -gt "$max_chars" ]; then
+    echo "Update failed; context.md was not overwritten."
+    echo "Update input is too large: $input_chars chars; limit is $max_chars chars."
+    echo "Raw update was still appended to: $history_file"
+    echo "Use oc-capture for large first-pass synthesis or provide a shorter update."
+    return 1
+  fi
+
+  local context
+  context="$(cat "$context_file")"
+
+  local session_id
+  session_id="update-${project_name}-$(date +%s)"
+
+  local raw_output_file
+  raw_output_file="$(mktemp)"
+
+  local filtered_output_file
+  filtered_output_file="$(mktemp)"
+
+  local prompt
+  prompt="$(oc__context_update_prompt "$project_name" "$context" "$input")"
+
+  local backend="${OPENCLAW_UPDATE_BACKEND:-openclaw}"
+  local backend_status=0
+
+  case "$backend" in
+    openclaw|local)
+      oc__run_openclaw_agent "$session_id" "$prompt" "$raw_output_file" || backend_status=$?
+      ;;
+    openai)
+      oc__run_openai_response "$prompt" "$raw_output_file" "${OPENCLAW_UPDATE_OPENAI_MODEL:-${OPENCLAW_CAPTURE_MODEL:-gpt-5}}" || backend_status=$?
+      ;;
+    *)
+      printf 'Unknown OPENCLAW_UPDATE_BACKEND: %s\n' "$backend" > "$raw_output_file"
+      backend_status=1
+      ;;
+  esac
+
+  oc__clean_agent_output "$raw_output_file" "$filtered_output_file"
+
+  local debug_file="$project_dir/update-failed-$(date +%Y%m%d-%H%M%S).log"
+
+  if [ "$backend_status" -ne 0 ] || ! oc__has_valid_context_output "$filtered_output_file"; then
+    oc__save_failed_capture "$raw_output_file" "$debug_file"
+    rm -f "$raw_output_file" "$filtered_output_file"
+    echo "Update failed; context.md was not overwritten."
+    echo "Debug output saved to: $debug_file"
+    echo "Appended raw update to: $history_file"
+    return 1
+  fi
+
+  cp "$filtered_output_file" "$context_file"
+  rm -f "$raw_output_file" "$filtered_output_file"
+
+  echo
+  echo "Updated distilled context at: $context_file"
   echo "Appended raw update to: $history_file"
 }
 
