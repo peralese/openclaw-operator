@@ -136,6 +136,10 @@ Project validation showed the framework is functioning correctly; current effort
 - Improve `oc-capture` prompt weighting for README ingestion.
 - Add README section prioritization rules.
 - Add optional fallback logic when README lacks actionable next steps.
+- Make `Next Step` capture consistently actionable by requiring one concrete, verb-led action; when no explicit next step exists, infer one from the most operational roadmap item, gap, risk, or known limitation.
+- Add regression coverage using real README fixtures that exposed weak or missing next steps, including `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
+- Rerun README-ingestion comparisons for `family-cookbook`, `knowledge_base`, `openclaw-operator`, `Plex_Catalogue`, and `Simple-Doc-Anonymizer` after capture changes.
+- Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
 - Consider commit-summary or changelog ingestion.
 - Add `oc-projects --detail` or an equivalent richer project listing.
 - Improve project metadata/status tracking.

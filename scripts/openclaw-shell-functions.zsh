@@ -263,6 +263,15 @@ README AND DOCUMENTATION INGESTION RULES:
 - Prioritize sections named or resembling: Next Step, Next Steps, TODO, Roadmap, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Recent Work, Changelog
 - Deprioritize installation/setup instructions, generic feature lists, marketing descriptions, long architecture explanations, badges, and dependency lists unless they indicate operational state
 
+NEXT STEP SELECTION RULES:
+- Always prefer one concrete, verb-led action that a developer or project owner can do next
+- A good next step starts with an action verb such as Implement, Fix, Add, Validate, Document, Review, Test, Refine, or Rerun
+- Do not use vague next steps such as Continue work, Improve project, Investigate later, Consider enhancements, or None
+- First look for explicit next-step language in sections named or resembling Next Step, Next Steps, TODO, Roadmap, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Recent Work, or Changelog
+- If no explicit next step exists, infer one from the most operational gap, risk, known limitation, failing workflow, unfinished roadmap item, or missing validation described in the raw update
+- If inferring from gaps or limitations, choose the action that most directly improves usability, reliability, correctness, validation, or documentation
+- Use \"No explicit next step found in README\" only when the raw update provides no useful operational gap, risk, limitation, roadmap item, TODO, unfinished work, or validation target
+
 OUTPUT RULES:
 - Output exactly the markdown structure below
 - Use short bullets only in bullet sections
@@ -291,9 +300,9 @@ REQUIRED OUTPUT FORMAT:
 - If none found, say exactly: No explicit open issues found
 
 ## Next Step
-- <exactly one most actionable next step>
+- <exactly one most actionable, concrete, verb-led next step>
 - If inferred, start with: Inferred:
-- If no explicit next step exists and no useful conservative inference can be made, say exactly: No explicit next step found in README
+- If no explicit next step exists and no useful conservative inference can be made from gaps, risks, limitations, roadmap items, TODOs, unfinished work, or validation targets, say exactly: No explicit next step found in README
 
 ## Suggested Resume Prompt
 \"<one concise prompt the user can paste later>\"
