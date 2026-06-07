@@ -108,6 +108,239 @@ oc-projects() {
   fi
 }
 
+# -------- Portfolio Triage --------
+oc-portfolio() {
+  local projects_root="$HOME/Projects"
+  local stale_days="${OPENCLAW_PORTFOLIO_STALE_DAYS:-45}"
+  local now_epoch
+  now_epoch="$(date +%s)"
+
+  if [ ! -d "$projects_root" ]; then
+    echo "No project directories found under ~/Projects"
+    return 0
+  fi
+
+  local report_file
+  report_file="$(mktemp)"
+
+  local found=0
+
+  while IFS= read -r project_dir; do
+    local project_name=""
+    project_name="$(basename "$project_dir")"
+
+    if [[ "$project_name" == .* ]]; then
+      continue
+    fi
+
+    found=1
+
+    local context_file="$project_dir/context.md"
+
+    if [ ! -f "$context_file" ]; then
+      printf '%s\t%s\t%s\t%s\n' \
+        "Missing / Thin Context" \
+        "$project_name" \
+        "context.md is missing" \
+        "None" >> "$report_file"
+      continue
+    fi
+
+    local modified_epoch="" days_old=""
+    modified_epoch="$(stat -f '%m' "$context_file")"
+    days_old=$(( (now_epoch - modified_epoch) / 86400 ))
+
+    awk -v fallback_project="$project_name" -v days_old="$days_old" -v stale_days="$stale_days" '
+      function ltrim(s) {
+        sub(/^[[:space:]]+/, "", s)
+        return s
+      }
+
+      function rtrim(s) {
+        sub(/[[:space:]]+$/, "", s)
+        return s
+      }
+
+      function trim(s) {
+        return rtrim(ltrim(s))
+      }
+
+      function clean_bullet(s) {
+        s = trim(s)
+        sub(/^[[:space:]]*[-*+][[:space:]]+/, "", s)
+        return trim(s)
+      }
+
+      function append_section(name, line) {
+        line = clean_bullet(line)
+
+        if (name == "Project") {
+          if (project == "" && line != "") {
+            project = line
+          }
+          return
+        }
+
+        if (line == "") {
+          return
+        }
+
+        if (section_text[name] == "") {
+          section_text[name] = line
+        } else {
+          section_text[name] = section_text[name] " " line
+        }
+
+        if (first_line[name] == "") {
+          first_line[name] = line
+        }
+      }
+
+      function has_any(s, pattern) {
+        return tolower(s) ~ pattern
+      }
+
+      function has_concrete_next_step(s) {
+        s = trim(s)
+        return s != "" &&
+          tolower(s) != "none" &&
+          tolower(s) !~ /^no explicit next step/ &&
+          tolower(s) !~ /^continue work/ &&
+          tolower(s) !~ /^improve project/
+      }
+
+      BEGIN {
+        wanted["Project"] = 1
+        wanted["Current State"] = 1
+        wanted["In Progress"] = 1
+        wanted["Open Issues"] = 1
+        wanted["Next Step"] = 1
+        wanted["Suggested Resume Prompt"] = 1
+      }
+
+      /^# Project Context[[:space:]]*$/ {
+        has_context_heading = 1
+      }
+
+      {
+        line = $0
+        sub(/\r$/, "", line)
+        header = rtrim(line)
+
+        if (header ~ /^##[[:space:]]+/) {
+          current = header
+          sub(/^##[[:space:]]+/, "", current)
+          current = rtrim(current)
+          if (current in wanted) {
+            seen[current] = 1
+          }
+          next
+        }
+
+        if (current in wanted) {
+          append_section(current, line)
+        }
+      }
+
+      END {
+        project = trim(project)
+        if (project == "") {
+          project = fallback_project
+        }
+
+        current_state = section_text["Current State"]
+        in_progress = section_text["In Progress"]
+        open_issues = section_text["Open Issues"]
+        next_step = first_line["Next Step"]
+        all_text = project " " current_state " " in_progress " " open_issues " " next_step
+
+        concrete_next = has_concrete_next_step(next_step)
+
+        if (!has_context_heading || !seen["Current State"] || !seen["Next Step"] || !concrete_next) {
+          category = "Missing / Thin Context"
+          if (!has_context_heading) {
+            reason = "context.md does not contain a valid # Project Context heading"
+          } else if (!seen["Current State"] || !seen["Next Step"]) {
+            reason = "context.md is missing required sections"
+          } else {
+            reason = "next step is missing or not actionable"
+          }
+        } else if (has_any(all_text, "(smoke test|test-only|obsolete|abandoned|superseded|duplicate|archive candidate|no useful project purpose)")) {
+          category = "Archive Candidates"
+          reason = "context indicates a test-only, obsolete, duplicate, or low-purpose project"
+        } else if (has_any(open_issues " " in_progress, "(blocked|blocker|stalled|waiting|credential|permission denied|unavailable)")) {
+          category = "Pause"
+          reason = "context shows a blocking or stalled condition"
+        } else if (days_old > stale_days) {
+          category = "Review"
+          reason = "context is stale (" days_old " days old)"
+        } else if (in_progress != "" && tolower(in_progress) !~ /no explicit in-progress work found/) {
+          category = "Continue"
+          reason = "active in-progress work and concrete next step"
+        } else if (has_any(open_issues, "(unclear|weak|missing|risk|limitation|gap|needs validation|not implemented|not yet)")) {
+          category = "Review"
+          reason = "context has open issues or validation gaps"
+        } else {
+          category = "Review"
+          reason = "concrete next step exists, but active work is unclear"
+        }
+
+        if (next_step == "") {
+          next_step = "None"
+        }
+
+        printf "%s\t%s\t%s\t%s\n", category, fallback_project, reason, next_step
+      }
+    ' "$context_file" >> "$report_file"
+  done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d -print | sort)
+
+  if [ "$found" -eq 0 ]; then
+    rm -f "$report_file"
+    echo "No project directories found under ~/Projects"
+    return 0
+  fi
+
+  awk -F '\t' '
+    function print_section(name) {
+      print ""
+      print "## " name
+      count = 0
+      for (i = 1; i <= total; i++) {
+        if (category[i] == name) {
+          count++
+          if (name == "Archive Candidates") {
+            printf "- %s - %s\n", project[i], reason[i]
+          } else {
+            printf "- %s - %s; next: %s\n", project[i], reason[i], next_step[i]
+          }
+        }
+      }
+      if (count == 0) {
+        print "- None"
+      }
+    }
+
+    {
+      total++
+      category[total] = $1
+      project[total] = $2
+      reason[total] = $3
+      next_step[total] = $4
+    }
+
+    END {
+      print "# Project Portfolio"
+      print_section("Continue")
+      print_section("Review")
+      print_section("Pause")
+      print_section("Archive Candidates")
+      print_section("Missing / Thin Context")
+    }
+  ' "$report_file"
+
+  rm -f "$report_file"
+}
+
 # -------- Project Status --------
 oc-status() {
   local project_name="$1"

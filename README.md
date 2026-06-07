@@ -23,6 +23,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
+- `oc-portfolio` — show a heuristic-only portfolio triage report across `~/Projects`
 - `oc-status <project-name>` — show deterministic project details from `~/Projects/<project-name>/context.md` without calling OpenClaw or an LLM
 - `oc-capture <project-name> [input-file]` — create the initial project context from raw project state
 - `oc-update <project-name> [input-file]` — apply a short update to an existing `~/Projects/<project-name>/context.md`
@@ -39,6 +40,7 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 ## Capture / Continue Workflow
 
 - Run `oc-projects` to see available tracked projects with `context.md` files.
+- Run `oc-portfolio` to group projects into Continue, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
 - Run `oc-status <project-name>` to inspect the saved context for one project without invoking OpenClaw.
 - Run `oc-continue <project-name>` to resume from the saved context for that project when you need a short, practical handoff back into real work.
 - Run `oc-capture <project-name>` for first-pass synthesis from a README, HTML README, docs export, transcript, or other broad project source.
@@ -55,8 +57,9 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 - Failed capture or update output is saved to `capture-failed-*.log` or `update-failed-*.log` under the project directory.
 - If capture or update fails, `context.md` is not overwritten.
 - `oc-status` reads only `context.md` and returns the saved `Current State`, `In Progress`, `Open Issues`, `Next Step`, and `Suggested Resume Prompt` sections.
+- `oc-portfolio` reads only local project directories and `context.md` files; it does not call OpenAI, OpenClaw, Ollama, or any other LLM.
 - `oc-continue` reads only `context.md` and returns these LLM-generated sections: `Project Status`, `Active Work`, `Blockers / Risks`, `Recommended Next Action`, `First Step`, and `Resume Prompt`.
-- `oc-projects` is the portfolio list, `oc-status <project-name>` is deterministic project detail, and `oc-continue <project-name>` is LLM-assisted resume guidance.
+- `oc-projects` is the compact portfolio list, `oc-portfolio` is deterministic portfolio triage, `oc-status <project-name>` is deterministic project detail, and `oc-continue <project-name>` is LLM-assisted resume guidance.
 - `oc-continue` is intended for restarting work after an interruption without rereading the full project context.
 - `oc-capture` and `oc-update` start saved context at the first exact `# Project Context` heading and strip OpenClaw terminal decorations before validation.
 
@@ -64,6 +67,7 @@ Example:
 
 ```zsh
 oc-projects
+oc-portfolio
 oc-status openclaw-operator
 oc-capture openclaw-operator
 oc-capture openclaw-operator README.md
@@ -83,6 +87,7 @@ oc-continue openclaw-operator
 - `oc-capture` and `oc-continue` MVP flow implemented
 - `oc-update` incremental context update flow implemented
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
+- `oc-portfolio` groups local projects with heuristic-only continue/review/pause/archive triage
 - `oc-status` shows deterministic project details without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now preprocesses HTML inputs and refuses oversized processed input
@@ -122,42 +127,34 @@ oc-continue openclaw-operator
 - Clean `context.md` generation with OpenClaw banner cleanup.
 - `oc-continue <project>` for LLM-assisted resume summaries.
 - `oc-projects` for portfolio/project listing.
+- `oc-portfolio` for deterministic portfolio triage.
 - `oc-status <project>` for deterministic project detail views.
 - Project isolation validated with at least `openclaw-operator` and `family-cookbook`.
 - Multi-project validation across `family-cookbook`, `Knowledge-Base`, `Plex-Catalogue`, `Simple-Doc-Anonymizer`, and `openclaw-operator`.
 - `oc-projects` confirmed to extract `Next Step` values when present.
 
-Project validation showed the framework is functioning correctly; current effort is improving the quality of operational context extracted from project documentation.
+Project validation showed the framework is functioning correctly; current effort is moving from single-project continuity toward portfolio-level project triage.
 
 ## Current Focus
 
-- Improve README ingestion quality.
-- Prioritize operational content over setup content.
-- Improve extraction of:
-  - Next Step
-  - TODO
-  - Roadmap
-  - Open Issues
-  - In Progress
-- Reduce installation/architecture dominance in context generation.
-- Validate README ingestion across additional real projects.
+- Use OpenAI-backed `oc-capture` for initial project synthesis.
+- Use local `oc-update` for short incremental project updates.
+- Keep project contexts compact, valid, and non-destructively updated.
+- Refine the deterministic portfolio report for deciding which projects to continue, review, pause, or archive.
 
 ## Near-Term Roadmap
 
-- Improve `oc-capture` prompt weighting for README ingestion.
-- Add README section prioritization rules.
-- Add optional fallback logic when README lacks actionable next steps.
-- Make `Next Step` capture consistently actionable by requiring one concrete, verb-led action; when no explicit next step exists, infer one from the most operational roadmap item, gap, risk, or known limitation.
+- Add optional project metadata files later, such as `~/Projects/<project>/project.json`, if deterministic context parsing is not enough.
+- Add richer `oc-projects --detail` output if it remains distinct from `oc-portfolio`.
 - Add regression coverage using real README fixtures that exposed weak or missing next steps, including `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
-- Rerun README-ingestion comparisons for `family-cookbook`, `knowledge_base`, `openclaw-operator`, `Plex_Catalogue`, and `Simple-Doc-Anonymizer` after capture changes.
 - Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
 - Consider commit-summary or changelog ingestion.
-- Add `oc-projects --detail` or an equivalent richer project listing.
 - Improve project metadata/status tracking.
-- Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, and `oc-projects`.
+- Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, `oc-update`, `oc-projects`, and `oc-portfolio`.
 
 ## Later Roadmap
 
+- Add optional LLM-assisted portfolio recommendations only after the heuristic `oc-portfolio` report is useful and inspectable.
 - Telegram-based project context intake.
 - Dedicated email intake after Telegram pattern is proven.
 - Voice-note/transcription-based capture.
