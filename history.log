@@ -434,3 +434,21 @@ Project validation showed the framework is functioning correctly; current effort
 - `notes/` — session notes and idea backlog
 - `agents/` — agent definitions and design docs
 - `scripts/openclaw-shell-functions.zsh` — tracked shell helpers loaded by `~/.zshrc`
+
+[2026-06-13 21:46:48]
+Source: implementation
+Project: OpenClaw Personal AI Operator
+
+Current State:
+- Implemented oc-capture operational README section prioritization by front-loading sections such as Next Steps, TODO, Roadmap, Open Issues, Known Limitations, In Progress, Current Status, Recent Work, and Changelog before the full raw update.
+- Added local regression tests for operational README front-loading and plain input pass-through.
+- Updated README.md and context.md to reflect completed prioritization work.
+
+In Progress:
+- Validate the prioritized capture flow against real project READMEs that previously produced weak or missing next steps.
+
+Open Issues:
+- Real README regression fixtures for Plex_Catalogue and Simple-Doc-Anonymizer are not yet committed.
+
+Next Goal:
+- Add real README regression fixtures and verify oc-capture produces one concrete Next Step for each.

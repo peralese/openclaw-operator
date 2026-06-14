@@ -500,6 +500,67 @@ oc__strip_html_file() {
   ' "$input_file" > "$output_file"
 }
 
+oc__prioritize_operational_sections() {
+  local input_file="$1"
+  local output_file="$2"
+  local max_excerpt_chars="${3:-${OPENCLAW_OPERATIONAL_EXCERPT_MAX_CHARS:-40000}}"
+  local excerpt_file
+  excerpt_file="$(mktemp)"
+
+  if [ "$max_excerpt_chars" -le 0 ]; then
+    cp "$input_file" "$output_file"
+    rm -f "$excerpt_file"
+    return 0
+  fi
+
+  awk '
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+
+    function header_name(line) {
+      sub(/^#{1,6}[[:space:]]+/, "", line)
+      sub(/[[:space:]]+#+[[:space:]]*$/, "", line)
+      return trim(line)
+    }
+
+    function is_operational_header(name) {
+      name = tolower(name)
+      return name ~ /^(next steps?|next action|todo|to do|roadmap|open issues?|known issues?|known limitations?|limitations|in progress|current status|current state|recent work|changelog|backlog|remaining work|future work|planned work|status)$/
+    }
+
+    /^#{1,6}[[:space:]]+/ {
+      current_header = header_name($0)
+      in_operational = is_operational_header(current_header)
+      if (in_operational) {
+        print ""
+        print $0
+      }
+      next
+    }
+
+    in_operational {
+      print
+    }
+  ' "$input_file" | head -c "$max_excerpt_chars" > "$excerpt_file"
+
+  if [ -s "$excerpt_file" ]; then
+    {
+      echo "OPERATIONAL README SECTION EXCERPTS:"
+      cat "$excerpt_file"
+      echo
+      echo "FULL RAW PROJECT UPDATE:"
+      cat "$input_file"
+    } > "$output_file"
+  else
+    cp "$input_file" "$output_file"
+  fi
+
+  rm -f "$excerpt_file"
+}
+
 oc__clean_agent_output() {
   local raw_output_file="$1"
   local filtered_output_file="$2"
@@ -807,6 +868,20 @@ oc-capture() {
   esac
 
   local max_chars="${OPENCLAW_CAPTURE_MAX_CHARS:-120000}"
+  local original_processed_chars
+  local excerpt_char_budget
+  original_processed_chars="$(wc -c < "$processed_input_file" | tr -d ' ')"
+  excerpt_char_budget=$(( max_chars - original_processed_chars - 128 ))
+  if [ "$excerpt_char_budget" -gt "${OPENCLAW_OPERATIONAL_EXCERPT_MAX_CHARS:-40000}" ]; then
+    excerpt_char_budget="${OPENCLAW_OPERATIONAL_EXCERPT_MAX_CHARS:-40000}"
+  fi
+
+  local prioritized_input_file
+  prioritized_input_file="$(mktemp)"
+  oc__prioritize_operational_sections "$processed_input_file" "$prioritized_input_file" "$excerpt_char_budget"
+  cp "$prioritized_input_file" "$processed_input_file"
+  rm -f "$prioritized_input_file"
+
   local processed_chars
   processed_chars="$(wc -c < "$processed_input_file" | tr -d ' ')"
 

@@ -49,6 +49,7 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 - The raw update is appended to `~/Projects/<project-name>/history.log`.
 - `history.log` records whether the source was interactive input, a file, or stdin.
 - `oc-capture` preprocesses `.html` and `.htm` inputs by stripping scripts, styles, page chrome, tags, and repeated whitespace.
+- `oc-capture` front-loads operational README sections such as Next Steps, TODO, Roadmap, Open Issues, Known Limitations, In Progress, Current Status, Recent Work, and Changelog before sending the full source to the capture backend.
 - `oc-capture` refuses to send processed inputs larger than `OPENCLAW_CAPTURE_MAX_CHARS` (`120000` by default).
 - `oc-capture` uses the OpenAI API by default. Set `OPENCLAW_CAPTURE_BACKEND=openclaw` to force the local OpenClaw backend.
 - `oc-update` uses the local OpenClaw backend by default. Set `OPENCLAW_UPDATE_BACKEND=openai` to use the OpenAI API for updates.
@@ -91,14 +92,16 @@ oc-continue openclaw-operator
 - `oc-status` shows deterministic project details without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now preprocesses HTML inputs and refuses oversized processed input
+- `oc-capture` prioritizes operational README sections before broad setup, architecture, or feature documentation
 - `oc-capture` and `oc-update` do not overwrite `context.md` unless valid `# Project Context` output is produced
 - `oc-continue` returns concise operational resume summaries with fixed sections
 - Project validation showed framework behavior and project isolation are working correctly
 - Prompt rules reduce drift into speculative OpenClaw internals
+- Local regression tests cover operational README section prioritization and plain input pass-through
 
 ## Known Limitations
 
-- README ingestion can over-weight setup, architecture, or feature documentation when operational sections are sparse.
+- README ingestion still needs validation against more real project READMEs with weak or missing next-step sections.
 - `oc-projects` does not yet group projects by status category.
 - Telegram and email intake are not implemented yet.
 
@@ -132,6 +135,7 @@ oc-continue openclaw-operator
 - Project isolation validated with at least `openclaw-operator` and `family-cookbook`.
 - Multi-project validation across `family-cookbook`, `Knowledge-Base`, `Plex-Catalogue`, `Simple-Doc-Anonymizer`, and `openclaw-operator`.
 - `oc-projects` confirmed to extract `Next Step` values when present.
+- README section prioritization for `oc-capture`, with regression coverage for operational section front-loading.
 
 Project validation showed the framework is functioning correctly; current effort is moving from single-project continuity toward portfolio-level project triage.
 
@@ -141,12 +145,13 @@ Project validation showed the framework is functioning correctly; current effort
 - Use local `oc-update` for short incremental project updates.
 - Keep project contexts compact, valid, and non-destructively updated.
 - Refine the deterministic portfolio report for deciding which projects to continue, review, pause, or archive.
+- Validate operational README prioritization against real projects that previously produced weak or missing next steps.
 
 ## Near-Term Roadmap
 
 - Add optional project metadata files later, such as `~/Projects/<project>/project.json`, if deterministic context parsing is not enough.
 - Add richer `oc-projects --detail` output if it remains distinct from `oc-portfolio`.
-- Add regression coverage using real README fixtures that exposed weak or missing next steps, including `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
+- Add regression fixtures from real READMEs that exposed weak or missing next steps, including `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
 - Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
 - Consider commit-summary or changelog ingestion.
 - Improve project metadata/status tracking.
@@ -170,3 +175,4 @@ Project validation showed the framework is functioning correctly; current effort
 - `notes/` — session notes and idea backlog
 - `agents/` — agent definitions and design docs
 - `scripts/openclaw-shell-functions.zsh` — tracked shell helpers loaded by `~/.zshrc`
+- `tests/run-tests.zsh` — local regression checks for shell helper behavior
