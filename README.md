@@ -23,7 +23,10 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
-- `oc-portfolio` — show a heuristic-only portfolio triage report across `~/Projects`
+- `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
+- `oc-rescan` — report whether each project's captured source README has changed
+- `oc-rescan <project> [input-file]` — refresh one project's context only when its source has changed
+- `oc-rescan --all` — refresh every changed project with a discoverable source README
 - `oc-status <project-name>` — show deterministic project details from `~/Projects/<project-name>/context.md` without calling OpenClaw or an LLM
 - `oc-capture <project-name> [input-file]` — create the initial project context from raw project state
 - `oc-update <project-name> [input-file]` — apply a short update to an existing `~/Projects/<project-name>/context.md`
@@ -40,7 +43,9 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 ## Capture / Continue Workflow
 
 - Run `oc-projects` to see available tracked projects with `context.md` files.
-- Run `oc-portfolio` to group projects into Continue, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
+- Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
+- Run `oc-rescan` to check source README hashes and timestamps without making an LLM call.
+- Run `oc-rescan <project>` to re-run capture for one changed source, or `oc-rescan --all` to refresh all changed sources. The bulk form can make multiple capture/backend calls.
 - Run `oc-status <project-name>` to inspect the saved context for one project without invoking OpenClaw.
 - Run `oc-continue <project-name>` to resume from the saved context for that project when you need a short, practical handoff back into real work.
 - Run `oc-capture <project-name>` for first-pass synthesis from a README, HTML README, docs export, transcript, or other broad project source.
@@ -59,6 +64,8 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 - If capture or update fails, `context.md` is not overwritten.
 - `oc-status` reads only `context.md` and returns the saved `Current State`, `In Progress`, `Open Issues`, `Next Step`, and `Suggested Resume Prompt` sections.
 - `oc-portfolio` reads only local project directories and `context.md` files; it does not call OpenAI, OpenClaw, Ollama, or any other LLM.
+- `oc-rescan` without arguments is read-only. Successful file-based captures record the source path and SHA-256 in the locally ignored `.openclaw-source`; older captures fall back to the most recent file source in `history.log`, then the project's own `README.md`, and use modification times until a hash baseline exists.
+- `oc-rescan --all` skips unchanged sources and projects whose source README cannot be found.
 - `oc-continue` reads only `context.md` and returns these LLM-generated sections: `Project Status`, `Active Work`, `Blockers / Risks`, `Recommended Next Action`, `First Step`, and `Resume Prompt`.
 - `oc-projects` is the compact portfolio list, `oc-portfolio` is deterministic portfolio triage, `oc-status <project-name>` is deterministic project detail, and `oc-continue <project-name>` is LLM-assisted resume guidance.
 - `oc-continue` is intended for restarting work after an interruption without rereading the full project context.
@@ -69,11 +76,14 @@ Example:
 ```zsh
 oc-projects
 oc-portfolio
+oc-rescan
 oc-status openclaw-operator
 oc-capture openclaw-operator
 oc-capture openclaw-operator README.md
 oc-capture repo-process-baseline readme.html
 oc-update openclaw-operator update-notes.md
+oc-rescan meal-planner ~/Downloads/Readme/meal-planner.md
+oc-rescan --all
 cat README.md | oc-capture family-cookbook
 oc-continue openclaw-operator
 ```

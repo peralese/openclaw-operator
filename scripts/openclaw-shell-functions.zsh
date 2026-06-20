@@ -200,6 +200,18 @@ oc-portfolio() {
         return tolower(s) ~ pattern
       }
 
+      function has_archive_signal(s, normalized) {
+        normalized = tolower(s)
+        return normalized ~ /(smoke test|test-only|obsolete|abandoned|superseded|archive candidate|no useful project purpose)/ ||
+          normalized ~ /(^|[^[:alnum:]_])duplicate([^[:alnum:]_]|$)/
+      }
+
+      function looks_operational(s) {
+        s = tolower(s)
+        return s ~ /(^|[^[:alnum:]_])(working|functional|running|deployed|operational|accessible)([^[:alnum:]_]|$)/ ||
+          s ~ /(implemented features|features implemented|in use)/
+      }
+
       function has_concrete_next_step(s) {
         s = trim(s)
         return s != "" &&
@@ -265,7 +277,7 @@ oc-portfolio() {
           } else {
             reason = "next step is missing or not actionable"
           }
-        } else if (has_any(all_text, "(smoke test|test-only|obsolete|abandoned|superseded|duplicate|archive candidate|no useful project purpose)")) {
+        } else if (has_archive_signal(all_text)) {
           category = "Archive Candidates"
           reason = "context indicates a test-only, obsolete, duplicate, or low-purpose project"
         } else if (has_any(open_issues " " in_progress, "(blocked|blocker|stalled|waiting|credential|permission denied|unavailable)")) {
@@ -277,6 +289,9 @@ oc-portfolio() {
         } else if (in_progress != "" && tolower(in_progress) !~ /no explicit in-progress work found/) {
           category = "Continue"
           reason = "active in-progress work and concrete next step"
+        } else if (looks_operational(current_state)) {
+          category = "Maintain"
+          reason = "project appears operational, with no explicit active development"
         } else if (has_any(open_issues, "(unclear|weak|missing|risk|limitation|gap|needs validation|not implemented|not yet)")) {
           category = "Review"
           reason = "context has open issues or validation gaps"
@@ -331,6 +346,7 @@ oc-portfolio() {
     END {
       print "# Project Portfolio"
       print_section("Continue")
+      print_section("Maintain")
       print_section("Review")
       print_section("Pause")
       print_section("Archive Candidates")
@@ -457,6 +473,184 @@ oc-status() {
       }
     }
   ' "$context_file"
+}
+
+# -------- Source Rescan --------
+oc__source_hash() {
+  shasum -a 256 "$1" | awk '{ print $1 }'
+}
+
+oc__record_capture_source() {
+  local project_dir="$1"
+  local source_file="$2"
+  local metadata_file="$project_dir/.openclaw-source"
+
+  if [ -z "$source_file" ] || [ ! -f "$source_file" ]; then
+    return 0
+  fi
+
+  {
+    printf 'Source: %s\n' "$source_file"
+    printf 'SHA256: %s\n' "$(oc__source_hash "$source_file")"
+  } > "$metadata_file"
+
+  if [ -f "$project_dir/.git/info/exclude" ] && ! grep -Fqx '.openclaw-source' "$project_dir/.git/info/exclude"; then
+    printf '%s\n' '.openclaw-source' >> "$project_dir/.git/info/exclude"
+  fi
+}
+
+oc__project_source() {
+  local project_dir="$1"
+  local explicit_source="$2"
+  local metadata_file="$project_dir/.openclaw-source"
+  local history_file="$project_dir/history.log"
+  local source_file=""
+
+  if [ -n "$explicit_source" ]; then
+    printf '%s\n' "${explicit_source:A}"
+    return 0
+  fi
+
+  if [ -f "$metadata_file" ]; then
+    source_file="$(sed -n 's/^Source: //p' "$metadata_file" | head -n 1)"
+    if [ -f "$source_file" ]; then
+      printf '%s\n' "$source_file"
+      return 0
+    fi
+  fi
+
+  if [ -f "$history_file" ]; then
+    source_file="$(sed -n 's/^Source: file: //p' "$history_file" | tail -n 1)"
+    if [ -f "$source_file" ]; then
+      printf '%s\n' "$source_file"
+      return 0
+    fi
+  fi
+
+  if [ -f "$project_dir/README.md" ]; then
+    printf '%s\n' "$project_dir/README.md"
+    return 0
+  fi
+
+  return 1
+}
+
+oc__rescan_state() {
+  local project_dir="$1"
+  local source_file="$2"
+  local context_file="$project_dir/context.md"
+  local metadata_file="$project_dir/.openclaw-source"
+  local recorded_source="" recorded_hash="" current_hash=""
+
+  if [ ! -f "$context_file" ]; then
+    echo "Needs capture"
+    return 0
+  fi
+
+  if [ -f "$metadata_file" ]; then
+    recorded_source="$(sed -n 's/^Source: //p' "$metadata_file" | head -n 1)"
+    recorded_hash="$(sed -n 's/^SHA256: //p' "$metadata_file" | head -n 1)"
+  fi
+
+  if [ "$recorded_source" = "$source_file" ] && [ -n "$recorded_hash" ]; then
+    current_hash="$(oc__source_hash "$source_file")"
+    if [ "$current_hash" != "$recorded_hash" ]; then
+      echo "Changed"
+    else
+      echo "Current"
+    fi
+  elif [ "$source_file" -nt "$context_file" ]; then
+    echo "Changed"
+  else
+    echo "Current"
+  fi
+}
+
+oc__rescan_project() {
+  local project_name="$1"
+  local explicit_source="$2"
+  local project_dir="$HOME/Projects/$project_name"
+  local source_file="" state=""
+
+  if [ ! -d "$project_dir" ]; then
+    echo "Project directory not found: $project_dir"
+    return 1
+  fi
+
+  source_file="$(oc__project_source "$project_dir" "$explicit_source")" || {
+    echo "$project_name: source README not found"
+    return 1
+  }
+
+  if [ ! -f "$source_file" ]; then
+    echo "$project_name: source file not found: $source_file"
+    return 1
+  fi
+
+  if [ -n "$explicit_source" ]; then
+    local recorded_source=""
+    if [ -f "$project_dir/.openclaw-source" ]; then
+      recorded_source="$(sed -n 's/^Source: //p' "$project_dir/.openclaw-source" | head -n 1)"
+    fi
+    if [ "$recorded_source" != "$source_file" ]; then
+      state="Changed"
+    else
+      state="$(oc__rescan_state "$project_dir" "$source_file")"
+    fi
+  else
+    state="$(oc__rescan_state "$project_dir" "$source_file")"
+  fi
+  if [ "$state" = "Current" ]; then
+    echo "$project_name: Current — $source_file"
+    return 0
+  fi
+
+  echo "$project_name: $state — refreshing from $source_file"
+  oc-capture "$project_name" "$source_file"
+}
+
+oc-rescan() {
+  local mode="${1:-check}"
+  local projects_root="$HOME/Projects"
+
+  if [ "$mode" != "check" ] && [ "$mode" != "--all" ]; then
+    oc__rescan_project "$mode" "$2"
+    return $?
+  fi
+
+  if [ ! -d "$projects_root" ]; then
+    echo "No project directories found under ~/Projects"
+    return 0
+  fi
+
+  if [ "$mode" = "check" ]; then
+    printf '%-28s %-14s %s\n' "Project" "Source Status" "Source"
+    printf '%-28s %-14s %s\n' "----------------------------" "--------------" "----------------------------------------"
+  fi
+
+  local project_dir="" project_name="" source_file="" state=""
+  while IFS= read -r project_dir; do
+    project_name="$(basename "$project_dir")"
+    source_file="$(oc__project_source "$project_dir" "")" || source_file=""
+
+    if [ -z "$source_file" ]; then
+      if [ "$mode" = "check" ]; then
+        printf '%-28s %-14s %s\n' "$project_name" "Source missing" "None"
+      else
+        echo "$project_name: source README not found; skipped"
+      fi
+      continue
+    fi
+
+    state="$(oc__rescan_state "$project_dir" "$source_file")"
+    if [ "$mode" = "check" ]; then
+      printf '%-28s %-14s %s\n' "$project_name" "$state" "$source_file"
+    elif [ "$state" = "Current" ]; then
+      echo "$project_name: Current — skipped"
+    else
+      oc__rescan_project "$project_name" "$source_file" || return $?
+    fi
+  done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort)
 }
 
 # -------- Context Intake Helpers --------
@@ -828,6 +1022,7 @@ oc-capture() {
       return 1
     fi
 
+    input_file="${input_file:A}"
     input_source="file: $input_file"
     input="$(cat "$input_file")"
   elif [ ! -t 0 ]; then
@@ -939,6 +1134,7 @@ oc-capture() {
   fi
 
   cp "$filtered_output_file" "$context_file"
+  oc__record_capture_source "$project_dir" "$input_file"
   rm -f "$raw_output_file" "$filtered_output_file"
 
   echo

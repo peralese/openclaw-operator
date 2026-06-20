@@ -20,6 +20,19 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local file="$1"
+  local unexpected="$2"
+
+  if grep -Fq "$unexpected" "$file"; then
+    echo "Did not expect to find: $unexpected"
+    echo "In file: $file"
+    echo
+    cat "$file"
+    return 1
+  fi
+}
+
 assert_before() {
   local file="$1"
   local first="$2"
@@ -91,5 +104,77 @@ if ! cmp -s "$readme_fixture" "$zero_budget_output"; then
   echo "Expected zero excerpt budget to pass input through unchanged"
   exit 1
 fi
+
+portfolio_home="$tmpdir/home"
+meal_dir="$portfolio_home/Projects/meal-planner"
+smoke_dir="$portfolio_home/Projects/api-smoke-test"
+mkdir -p "$meal_dir" "$smoke_dir"
+
+cat > "$meal_dir/context.md" <<'EOF'
+# Project Context
+
+## Project
+meal-planner
+
+## Current State
+- Functional meal-planning app is implemented and running on the local network.
+- Shopping-list ingredients are aggregated and deduplicated.
+
+## In Progress
+- No explicit in-progress work found
+
+## Open Issues
+- Documentation could be clearer.
+
+## Next Step
+- Verify the documented startup workflow.
+EOF
+
+cat > "$smoke_dir/context.md" <<'EOF'
+# Project Context
+
+## Project
+api-smoke-test
+
+## Current State
+- Test-only API smoke test with no useful project purpose.
+
+## In Progress
+- No explicit in-progress work found
+
+## Open Issues
+- None
+
+## Next Step
+- Archive the test repository.
+EOF
+
+portfolio_output="$tmpdir/portfolio-output.md"
+HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
+
+assert_contains "$portfolio_output" "## Maintain"
+assert_contains "$portfolio_output" "meal-planner - project appears operational"
+assert_contains "$portfolio_output" "api-smoke-test - context indicates a test-only"
+assert_not_contains "$portfolio_output" "meal-planner - context indicates a test-only"
+
+cat > "$meal_dir/README.md" <<'EOF'
+# Meal Planner
+
+Initial source.
+EOF
+
+oc__record_capture_source "$meal_dir" "$meal_dir/README.md"
+rescan_output="$tmpdir/rescan-output.txt"
+HOME="$portfolio_home" oc-rescan > "$rescan_output"
+assert_contains "$rescan_output" "meal-planner"
+assert_contains "$rescan_output" "Current"
+
+cat >> "$meal_dir/README.md" <<'EOF'
+
+Changed source.
+EOF
+
+HOME="$portfolio_home" oc-rescan > "$rescan_output"
+assert_contains "$rescan_output" "Changed"
 
 echo "All tests passed."
