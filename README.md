@@ -24,10 +24,11 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
+- `oc-portfolio-set <project> <state|auto> <intent|auto>` — override a project's computed state and strategic intent
 - `oc-rescan` — report whether each project's captured source README has changed
 - `oc-rescan <project> [input-file]` — refresh one project's context only when its source has changed
 - `oc-rescan --all` — refresh every changed project with a discoverable source README
-- `oc-status <project-name>` — show deterministic project details from `~/Projects/<project-name>/context.md` without calling OpenClaw or an LLM
+- `oc-status <project-name>` — show deterministic project details, effective portfolio state, and strategic intent without calling OpenClaw or an LLM
 - `oc-capture <project-name> [input-file]` — create the initial project context from raw project state
 - `oc-update <project-name> [input-file]` — apply a short update to an existing `~/Projects/<project-name>/context.md`
 - `oc-continue <project-name>` — generate a concise operational resume summary from `~/Projects/<project-name>/context.md`
@@ -44,6 +45,7 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
+- Portfolio entries also show strategic intent: Invest, Sustain, Explore, Hold, or Sunset. By default, intent is derived from state; `oc-portfolio-set` can override either dimension while `auto` restores automatic behavior.
 - Run `oc-rescan` to check source README hashes and timestamps without making an LLM call.
 - Run `oc-rescan <project>` to re-run capture for one changed source, or `oc-rescan --all` to refresh all changed sources. The bulk form can make multiple capture/backend calls.
 - Run `oc-status <project-name>` to inspect the saved context for one project without invoking OpenClaw.
@@ -76,6 +78,8 @@ Example:
 ```zsh
 oc-projects
 oc-portfolio
+oc-portfolio-set openclaw-operator Continue Invest
+oc-portfolio-set openclaw-operator auto auto
 oc-rescan
 oc-status openclaw-operator
 oc-capture openclaw-operator

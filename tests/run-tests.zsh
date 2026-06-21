@@ -153,9 +153,24 @@ portfolio_output="$tmpdir/portfolio-output.md"
 HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
 
 assert_contains "$portfolio_output" "## Maintain"
-assert_contains "$portfolio_output" "meal-planner - project appears operational"
-assert_contains "$portfolio_output" "api-smoke-test - context indicates a test-only"
+assert_contains "$portfolio_output" "meal-planner - intent: Sustain; project appears operational"
+assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset; context indicates a test-only"
 assert_not_contains "$portfolio_output" "meal-planner - context indicates a test-only"
+
+assert_contains "$portfolio_output" "meal-planner - intent: Sustain"
+assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset"
+
+HOME="$portfolio_home" oc-portfolio-set meal-planner Pause Invest > /dev/null
+HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
+assert_contains "$portfolio_output" "## Pause"
+assert_contains "$portfolio_output" "meal-planner - intent: Invest; manual state override (automatic: Maintain)"
+
+status_output="$tmpdir/status-output.txt"
+HOME="$portfolio_home" oc-status meal-planner > "$status_output"
+assert_contains "$status_output" "Portfolio State: Pause (manual)"
+assert_contains "$status_output" "Strategic Intent: Invest (manual)"
+
+HOME="$portfolio_home" oc-portfolio-set meal-planner auto auto > /dev/null
 
 cat > "$meal_dir/README.md" <<'EOF'
 # Meal Planner

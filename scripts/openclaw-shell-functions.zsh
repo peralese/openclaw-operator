@@ -109,6 +109,72 @@ oc-projects() {
 }
 
 # -------- Portfolio Triage --------
+oc__canonical_portfolio_state() {
+  case "${1:l}" in
+    auto) echo "Auto" ;;
+    continue) echo "Continue" ;;
+    maintain) echo "Maintain" ;;
+    review) echo "Review" ;;
+    pause) echo "Pause" ;;
+    "archive candidates"|archive) echo "Archive Candidates" ;;
+    "missing / thin context"|missing|thin) echo "Missing / Thin Context" ;;
+    *) return 1 ;;
+  esac
+}
+
+oc__canonical_portfolio_intent() {
+  case "${1:l}" in
+    auto) echo "Auto" ;;
+    invest) echo "Invest" ;;
+    sustain|"steady state") echo "Sustain" ;;
+    explore) echo "Explore" ;;
+    hold) echo "Hold" ;;
+    sunset) echo "Sunset" ;;
+    *) return 1 ;;
+  esac
+}
+
+oc__portfolio_metadata_value() {
+  local metadata_file="$1"
+  local key="$2"
+
+  [ -f "$metadata_file" ] || return 0
+  sed -n "s/^${key}: *//p" "$metadata_file" | head -n 1
+}
+
+oc-portfolio-set() {
+  local project_name="$1"
+  local requested_state="${2:-auto}"
+  local requested_intent="${3:-auto}"
+
+  if [ -z "$project_name" ]; then
+    echo 'Usage: oc-portfolio-set <project> <state|auto> <intent|auto>'
+    return 1
+  fi
+
+  local project_dir="$HOME/Projects/$project_name"
+  if [ ! -d "$project_dir" ]; then
+    echo "Project directory not found: $project_dir"
+    return 1
+  fi
+
+  local state intent
+  if ! state="$(oc__canonical_portfolio_state "$requested_state")"; then
+    echo "Invalid state: $requested_state"
+    echo 'Valid states: Continue, Maintain, Review, Pause, Archive Candidates, Missing / Thin Context, Auto'
+    return 1
+  fi
+  if ! intent="$(oc__canonical_portfolio_intent "$requested_intent")"; then
+    echo "Invalid intent: $requested_intent"
+    echo 'Valid intents: Invest, Sustain, Explore, Hold, Sunset, Auto'
+    return 1
+  fi
+
+  local metadata_file="$project_dir/.openclaw-portfolio"
+  printf 'State: %s\nIntent: %s\n' "$state" "$intent" > "$metadata_file"
+  echo "Saved portfolio overrides for $project_name: state=$state, intent=$intent"
+}
+
 oc-portfolio() {
   local projects_root="$HOME/Projects"
   local stale_days="${OPENCLAW_PORTFOLIO_STALE_DAYS:-45}"
@@ -136,12 +202,21 @@ oc-portfolio() {
     found=1
 
     local context_file="$project_dir/context.md"
+    local metadata_file="$project_dir/.openclaw-portfolio"
+    local override_state="" override_intent=""
+    override_state="$(oc__portfolio_metadata_value "$metadata_file" "State")"
+    override_intent="$(oc__portfolio_metadata_value "$metadata_file" "Intent")"
+    [ "$override_state" = "Auto" ] && override_state=""
+    [ "$override_intent" = "Auto" ] && override_intent=""
 
     if [ ! -f "$context_file" ]; then
-      printf '%s\t%s\t%s\t%s\n' \
-        "Missing / Thin Context" \
+      local missing_state="${override_state:-Missing / Thin Context}"
+      local missing_intent="${override_intent:-Explore}"
+      printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$missing_state" \
+        "$missing_intent" \
         "$project_name" \
-        "context.md is missing" \
+        "$([ -n "$override_state" ] && echo 'manual state override; context.md is missing' || echo 'context.md is missing')" \
         "None" >> "$report_file"
       continue
     fi
@@ -150,7 +225,8 @@ oc-portfolio() {
     modified_epoch="$(stat -f '%m' "$context_file")"
     days_old=$(( (now_epoch - modified_epoch) / 86400 ))
 
-    awk -v fallback_project="$project_name" -v days_old="$days_old" -v stale_days="$stale_days" '
+    awk -v fallback_project="$project_name" -v days_old="$days_old" -v stale_days="$stale_days" \
+      -v override_state="$override_state" -v override_intent="$override_intent" '
       function ltrim(s) {
         sub(/^[[:space:]]+/, "", s)
         return s
@@ -300,11 +376,31 @@ oc-portfolio() {
           reason = "concrete next step exists, but active work is unclear"
         }
 
+        automatic_category = category
+        if (override_state != "") {
+          category = override_state
+          reason = "manual state override (automatic: " automatic_category ")"
+        }
+
+        if (override_intent != "") {
+          intent = override_intent
+        } else if (category == "Continue") {
+          intent = "Invest"
+        } else if (category == "Maintain") {
+          intent = "Sustain"
+        } else if (category == "Review" || category == "Missing / Thin Context") {
+          intent = "Explore"
+        } else if (category == "Pause") {
+          intent = "Hold"
+        } else if (category == "Archive Candidates") {
+          intent = "Sunset"
+        }
+
         if (next_step == "") {
           next_step = "None"
         }
 
-        printf "%s\t%s\t%s\t%s\n", category, fallback_project, reason, next_step
+        printf "%s\t%s\t%s\t%s\t%s\n", category, intent, fallback_project, reason, next_step
       }
     ' "$context_file" >> "$report_file"
   done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d -print | sort)
@@ -324,9 +420,9 @@ oc-portfolio() {
         if (category[i] == name) {
           count++
           if (name == "Archive Candidates") {
-            printf "- %s - %s\n", project[i], reason[i]
+            printf "- %s - intent: %s; %s\n", project[i], intent[i], reason[i]
           } else {
-            printf "- %s - %s; next: %s\n", project[i], reason[i], next_step[i]
+            printf "- %s - intent: %s; %s; next: %s\n", project[i], intent[i], reason[i], next_step[i]
           }
         }
       }
@@ -338,9 +434,10 @@ oc-portfolio() {
     {
       total++
       category[total] = $1
-      project[total] = $2
-      reason[total] = $3
-      next_step[total] = $4
+      intent[total] = $2
+      project[total] = $3
+      reason[total] = $4
+      next_step[total] = $5
     }
 
     END {
@@ -358,6 +455,31 @@ oc-portfolio() {
 }
 
 # -------- Project Status --------
+oc__portfolio_effective_dimensions() {
+  local project_name="$1"
+
+  oc-portfolio | awk -v target="$project_name" '
+    /^## / {
+      state = substr($0, 4)
+      next
+    }
+    {
+      prefix = "- " target " - intent: "
+      if (index($0, prefix) != 1) {
+        next
+      }
+
+      remainder = substr($0, length(prefix) + 1)
+      separator = index(remainder, ";")
+      if (separator > 0) {
+        intent = substr(remainder, 1, separator - 1)
+        print state "\t" intent
+        exit
+      }
+    }
+  '
+}
+
 oc-status() {
   local project_name="$1"
 
@@ -378,7 +500,21 @@ oc-status() {
   local last_updated
   last_updated="$(stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$context_file")"
 
-  awk -v fallback_project="$project_name" -v last_updated="$last_updated" '
+  local dimensions portfolio_state strategic_intent
+  dimensions="$(oc__portfolio_effective_dimensions "$project_name")"
+  portfolio_state="${dimensions%%$'\t'*}"
+  strategic_intent="${dimensions#*$'\t'}"
+
+  local metadata_file="$project_dir/.openclaw-portfolio"
+  local configured_state configured_intent state_source="automatic" intent_source="automatic"
+  configured_state="$(oc__portfolio_metadata_value "$metadata_file" "State")"
+  configured_intent="$(oc__portfolio_metadata_value "$metadata_file" "Intent")"
+  [ -n "$configured_state" ] && [ "$configured_state" != "Auto" ] && state_source="manual"
+  [ -n "$configured_intent" ] && [ "$configured_intent" != "Auto" ] && intent_source="manual"
+
+  awk -v fallback_project="$project_name" -v last_updated="$last_updated" \
+    -v portfolio_state="$portfolio_state" -v strategic_intent="$strategic_intent" \
+    -v state_source="$state_source" -v intent_source="$intent_source" '
     function ltrim(s) {
       sub(/^[[:space:]]+/, "", s)
       return s
@@ -467,6 +603,8 @@ oc-status() {
 
       print "Project: " project
       print "Last Updated: " last_updated
+      print "Portfolio State: " portfolio_state " (" state_source ")"
+      print "Strategic Intent: " strategic_intent " (" intent_source ")"
 
       for (i = 1; i <= 5; i++) {
         print_section(order[i], section_text[order[i]])
