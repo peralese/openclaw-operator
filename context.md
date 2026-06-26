@@ -10,10 +10,13 @@ openclaw-operator
 - Deterministic vs LLM paths: oc-status reads saved context only; oc-continue returns fixed-section LLM resume summaries; oc-capture uses isolated session IDs
 - Multi-project validation completed; prompt rules and preprocessing reduce drift and preserve project isolation
 - Local regression tests cover operational README section front-loading and plain input pass-through
+- Source baselines have been refreshed for the main captured projects that previously showed Source missing; api-smoke-test remains intentionally unbaselined as an archive candidate
+- Portfolio archive-signal heuristic now avoids treating cross-project/archive-category notes as proof the current project should be archived
 
 ## In Progress
 - Validate README ingestion across additional real projects
-- Add real README fixtures for projects that previously produced weak or missing next steps
+- Audit already captured project contexts for stale sources, vague next steps, and review/maintain grouping quality
+- Review projects in the Review bucket for manual state/intent overrides or clearer next-step capture
 - Refine deterministic portfolio report after README capture quality is validated
 
 ## Open Issues
@@ -21,10 +24,11 @@ openclaw-operator
 - oc-projects does not group projects by status category
 - Telegram and email intake not implemented
 - Comparison/index mapping bug: cookbook vs family-cookbook conflicting alignment
-- Real-project regression fixtures are not yet committed
+- Real-project regression fixtures now cover Plex_Catalogue and Simple-Doc-Anonymizer preprocessing; both projects already have captured contexts and current source README baselines
+- api-smoke-test still shows Source missing, but it is intentionally skipped because it is already grouped for archival review
 
 ## Next Step
-- Add real README regression fixtures for Plex_Catalogue and Simple-Doc-Anonymizer, then verify oc-capture produces one concrete Next Step for each
+- Review oc-portfolio projects in the Review bucket and apply manual state/intent overrides where the automatic grouping is wrong or the project should be maintained, paused, or continued
 
 ## Suggested Resume Prompt
-"Resume openclaw-operator by adding real README regression fixtures for Plex_Catalogue and Simple-Doc-Anonymizer; verify the operational section prioritization in oc-capture produces one concrete Next Step for each."
+"Resume openclaw-operator by reviewing oc-portfolio projects in the Review bucket and applying manual state/intent overrides where the automatic grouping is wrong or the project should be maintained, paused, or continued."

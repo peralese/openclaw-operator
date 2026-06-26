@@ -278,7 +278,7 @@ oc-portfolio() {
 
       function has_archive_signal(s, normalized) {
         normalized = tolower(s)
-        return normalized ~ /(smoke test|test-only|obsolete|abandoned|superseded|archive candidate|no useful project purpose)/ ||
+        return normalized ~ /(smoke test|test-only|obsolete|abandoned|superseded|no useful project purpose)/ ||
           normalized ~ /(^|[^[:alnum:]_])duplicate([^[:alnum:]_]|$)/
       }
 
@@ -341,6 +341,7 @@ oc-portfolio() {
         open_issues = section_text["Open Issues"]
         next_step = first_line["Next Step"]
         all_text = project " " current_state " " in_progress " " open_issues " " next_step
+        archive_text = project " " current_state " " next_step
 
         concrete_next = has_concrete_next_step(next_step)
 
@@ -353,7 +354,7 @@ oc-portfolio() {
           } else {
             reason = "next step is missing or not actionable"
           }
-        } else if (has_archive_signal(all_text)) {
+        } else if (has_archive_signal(archive_text)) {
           category = "Archive Candidates"
           reason = "context indicates a test-only, obsolete, duplicate, or low-purpose project"
         } else if (has_any(open_issues " " in_progress, "(blocked|blocker|stalled|waiting|credential|permission denied|unavailable)")) {

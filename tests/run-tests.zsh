@@ -105,10 +105,35 @@ if ! cmp -s "$readme_fixture" "$zero_budget_output"; then
   exit 1
 fi
 
+plex_fixture="$repo_root/tests/fixtures/readmes/Plex_Catalogue.md"
+plex_output="$tmpdir/plex-prioritized.md"
+
+oc__prioritize_operational_sections "$plex_fixture" "$plex_output"
+
+assert_contains "$plex_output" "OPERATIONAL README SECTION EXCERPTS:"
+assert_contains "$plex_output" "## Roadmap"
+assert_contains "$plex_output" "Auto-cleanup old timestamped folders after successful upload"
+assert_contains "$plex_output" "FULL RAW PROJECT UPDATE:"
+assert_before "$plex_output" "## Roadmap" "## Requirements"
+assert_before "$plex_output" "Export the wishlist to Google Sheets" "Run the exporter:"
+
+anonymizer_fixture="$repo_root/tests/fixtures/readmes/Simple-Doc-Anonymizer.md"
+anonymizer_output="$tmpdir/anonymizer-prioritized.md"
+
+oc__prioritize_operational_sections "$anonymizer_fixture" "$anonymizer_output"
+
+assert_contains "$anonymizer_output" "OPERATIONAL README SECTION EXCERPTS:"
+assert_contains "$anonymizer_output" "## Known Limitations"
+assert_contains "$anonymizer_output" "PDF write-back not supported"
+assert_contains "$anonymizer_output" "FULL RAW PROJECT UPDATE:"
+assert_before "$anonymizer_output" "## Known Limitations" "## Setup"
+assert_before "$anonymizer_output" "If the span merger is joining spans that should stay separate" "python detect.py --doc input/sample_document.txt"
+
 portfolio_home="$tmpdir/home"
 meal_dir="$portfolio_home/Projects/meal-planner"
 smoke_dir="$portfolio_home/Projects/api-smoke-test"
-mkdir -p "$meal_dir" "$smoke_dir"
+operator_dir="$portfolio_home/Projects/openclaw-operator"
+mkdir -p "$meal_dir" "$smoke_dir" "$operator_dir"
 
 cat > "$meal_dir/context.md" <<'EOF'
 # Project Context
@@ -149,6 +174,25 @@ api-smoke-test
 - Archive the test repository.
 EOF
 
+cat > "$operator_dir/context.md" <<'EOF'
+# Project Context
+
+## Project
+openclaw-operator
+
+## Current State
+- Functional local-first project context tooling is implemented and used across active projects.
+
+## In Progress
+- Refine deterministic portfolio report after README capture quality is validated.
+
+## Open Issues
+- api-smoke-test still shows Source missing, but it is an archive candidate and was intentionally skipped.
+
+## Next Step
+- Review oc-portfolio for projects whose next steps need manual overrides.
+EOF
+
 portfolio_output="$tmpdir/portfolio-output.md"
 HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
 
@@ -156,6 +200,8 @@ assert_contains "$portfolio_output" "## Maintain"
 assert_contains "$portfolio_output" "meal-planner - intent: Sustain; project appears operational"
 assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset; context indicates a test-only"
 assert_not_contains "$portfolio_output" "meal-planner - context indicates a test-only"
+assert_not_contains "$portfolio_output" "openclaw-operator - intent: Sunset"
+assert_contains "$portfolio_output" "openclaw-operator - intent: Invest; active in-progress work and concrete next step"
 
 assert_contains "$portfolio_output" "meal-planner - intent: Sustain"
 assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset"
