@@ -150,6 +150,9 @@ oc-continue openclaw-operator
 - Multi-project validation across `family-cookbook`, `Knowledge-Base`, `Plex-Catalogue`, `Simple-Doc-Anonymizer`, and `openclaw-operator`.
 - `oc-projects` confirmed to extract `Next Step` values when present.
 - README section prioritization for `oc-capture`, with regression coverage for operational section front-loading.
+- Real README regression fixtures added for `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
+- Source baselines refreshed across the active project portfolio, with archive candidates intentionally skipped where appropriate.
+- Manual portfolio overrides validated for maintain, pause, and archive/sunset decisions.
 
 Project validation showed the framework is functioning correctly; current effort is moving from single-project continuity toward portfolio-level project triage.
 
@@ -158,24 +161,32 @@ Project validation showed the framework is functioning correctly; current effort
 - Use OpenAI-backed `oc-capture` for initial project synthesis.
 - Use local `oc-update` for short incremental project updates.
 - Keep project contexts compact, valid, and non-destructively updated.
-- Refine the deterministic portfolio report for deciding which projects to continue, review, pause, or archive.
-- Validate operational README prioritization against real projects that previously produced weak or missing next steps.
+- Make daily portfolio review faster and more useful after the initial capture/rescan foundation.
+- Refine deterministic portfolio views for deciding which projects to continue, maintain, review, pause, or archive.
+- Keep manual state/intent overrides inspectable while avoiding accidental archive or duplicate-project classifications.
+
+The project is currently in a CLI portfolio maturity phase: capture works well enough to manage many projects, and the next value is making review, grouping, and next-action selection easier.
 
 ## Near-Term Roadmap
 
-- Add optional project metadata files later, such as `~/Projects/<project>/project.json`, if deterministic context parsing is not enough.
-- Add richer `oc-projects --detail` output if it remains distinct from `oc-portfolio`.
-- Add regression fixtures from real READMEs that exposed weak or missing next steps, including `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
+- Add grouped project output to `oc-projects`, such as `oc-projects --grouped`, for a compact daily view by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context.
+- Add a focused Review-bucket workflow, such as `oc-review` or `oc-portfolio --review`, showing why each project needs attention, its next step, and whether an override/update/archive decision is likely.
+- Add richer override inspection, such as a compact report of manual state/intent overrides and their automatic fallback values.
 - Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
-- Consider commit-summary or changelog ingestion.
-- Improve project metadata/status tracking.
+- Keep adding regression fixtures only when real captures produce weak, vague, or misleading output.
 - Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, `oc-update`, `oc-projects`, and `oc-portfolio`.
+
+## Mid-Term Roadmap
+
+- Introduce an intake abstraction so file, stdin, email body, email attachment, Telegram message, and voice transcript sources can share the same capture/update safety rules.
+- Consider commit-summary or changelog ingestion as another structured intake source.
+- Add optional project metadata files later, such as `~/Projects/<project>/project.json`, if deterministic context parsing and `.openclaw-portfolio` are not enough.
+- Add optional LLM-assisted portfolio recommendations only after the heuristic `oc-portfolio` report is useful and inspectable.
 
 ## Later Roadmap
 
-- Add optional LLM-assisted portfolio recommendations only after the heuristic `oc-portfolio` report is useful and inspectable.
-- Telegram-based project context intake.
-- Dedicated email intake after Telegram pattern is proven.
+- Email-based project context intake: send or forward a README/update, ingest the body or attachment, refresh project context, and optionally reply with status and next step.
+- Telegram-based project context intake for quick status updates.
 - Voice-note/transcription-based capture.
 - Lightweight local dashboard for project review.
 - Semantic search across project contexts/history.

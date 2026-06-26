@@ -13,24 +13,25 @@ openclaw-operator
 - Source baselines have been refreshed for the main captured projects that previously showed Source missing; api-smoke-test remains intentionally unbaselined as an archive candidate
 - Portfolio archive-signal heuristic now avoids treating cross-project/archive-category notes as proof the current project should be archived
 - repo-proces-baseline has been manually marked Archive Candidates / Sunset because its context and captured source point to repo-context-baseline
+- Roadmap now frames the next arc as CLI portfolio maturity first, then intake abstraction, then later email/Telegram/voice ingestion
 
 ## In Progress
 - Validate README ingestion across additional real projects
 - Audit already captured project contexts for stale sources, vague next steps, and review/maintain grouping quality
-- Decide whether to improve oc-projects grouping or continue manual portfolio judgment for remaining Review projects
+- Improve daily portfolio review ergonomics with grouped `oc-projects` output or a focused Review-bucket workflow
 - Refine deterministic portfolio report after README capture quality is validated
 
 ## Open Issues
 - README ingestion still needs validation against real READMEs with weak or missing operational sections
 - oc-projects does not group projects by status category
-- Telegram and email intake not implemented
+- Email, Telegram, and voice intake are not implemented; these are later-channel goals after intake abstraction
 - Comparison/index mapping bug: cookbook vs family-cookbook conflicting alignment
 - Real-project regression fixtures now cover Plex_Catalogue and Simple-Doc-Anonymizer preprocessing; both projects already have captured contexts and current source README baselines
 - api-smoke-test still shows Source missing, but it is intentionally skipped because it is already grouped for archival review
 - repo-proces-baseline is treated as a duplicate/stale capture of repo-context-baseline rather than a distinct active project
 
 ## Next Step
-- Choose the next portfolio tooling improvement: either add status grouping to oc-projects or continue reviewing Review-bucket projects for manual state/intent overrides
+- Add grouped project output to oc-projects, such as oc-projects --grouped, for a compact daily view by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
 
 ## Suggested Resume Prompt
-"Resume openclaw-operator by choosing the next portfolio tooling improvement: add status grouping to oc-projects, or continue reviewing Review-bucket projects for manual state/intent overrides."
+"Resume openclaw-operator by adding grouped project output to oc-projects, such as oc-projects --grouped, for a compact daily view by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context."
