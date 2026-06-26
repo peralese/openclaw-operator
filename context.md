@@ -12,11 +12,12 @@ openclaw-operator
 - Local regression tests cover operational README section front-loading and plain input pass-through
 - Source baselines have been refreshed for the main captured projects that previously showed Source missing; api-smoke-test remains intentionally unbaselined as an archive candidate
 - Portfolio archive-signal heuristic now avoids treating cross-project/archive-category notes as proof the current project should be archived
+- repo-proces-baseline has been manually marked Archive Candidates / Sunset because its context and captured source point to repo-context-baseline
 
 ## In Progress
 - Validate README ingestion across additional real projects
 - Audit already captured project contexts for stale sources, vague next steps, and review/maintain grouping quality
-- Review projects in the Review bucket for manual state/intent overrides or clearer next-step capture
+- Decide whether to improve oc-projects grouping or continue manual portfolio judgment for remaining Review projects
 - Refine deterministic portfolio report after README capture quality is validated
 
 ## Open Issues
@@ -26,9 +27,10 @@ openclaw-operator
 - Comparison/index mapping bug: cookbook vs family-cookbook conflicting alignment
 - Real-project regression fixtures now cover Plex_Catalogue and Simple-Doc-Anonymizer preprocessing; both projects already have captured contexts and current source README baselines
 - api-smoke-test still shows Source missing, but it is intentionally skipped because it is already grouped for archival review
+- repo-proces-baseline is treated as a duplicate/stale capture of repo-context-baseline rather than a distinct active project
 
 ## Next Step
-- Review oc-portfolio projects in the Review bucket and apply manual state/intent overrides where the automatic grouping is wrong or the project should be maintained, paused, or continued
+- Choose the next portfolio tooling improvement: either add status grouping to oc-projects or continue reviewing Review-bucket projects for manual state/intent overrides
 
 ## Suggested Resume Prompt
-"Resume openclaw-operator by reviewing oc-portfolio projects in the Review bucket and applying manual state/intent overrides where the automatic grouping is wrong or the project should be maintained, paused, or continued."
+"Resume openclaw-operator by choosing the next portfolio tooling improvement: add status grouping to oc-projects, or continue reviewing Review-bucket projects for manual state/intent overrides."
