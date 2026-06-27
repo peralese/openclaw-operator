@@ -22,6 +22,8 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
+- `oc-help` — show a man-style reference for available OpenClaw helper commands
+- `oc-list` — list tracked project names only, with no timestamps or next-step details
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-projects --grouped [state]` — list projects by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using the same deterministic heuristics as `oc-portfolio`
 - `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
@@ -45,6 +47,8 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 
 ## Capture / Continue Workflow
 
+- Run `oc-help` to see a man-style command reference in the terminal.
+- Run `oc-list` when you only need project names with no extra columns.
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-projects --grouped` for a compact daily view grouped by portfolio state without reasons or intent labels, or pass a state such as `Continue`, `Review`, `Pause`, `archive`, or `missing` to show one group.
 - Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
@@ -81,6 +85,8 @@ Example:
 
 ```zsh
 oc-projects
+oc-list
+oc-help
 oc-projects --grouped
 oc-projects --grouped Continue
 oc-projects --grouped archive
@@ -109,6 +115,8 @@ oc-continue openclaw-operator
 - `oc-plan` and `oc-next` are working concepts in the MVP
 - `oc-capture` and `oc-continue` MVP flow implemented
 - `oc-update` incremental context update flow implemented
+- `oc-help` shows a man-style terminal reference for available helper commands
+- `oc-list` shows project names only for compact scripting and selection
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
 - `oc-projects --grouped [state]` lists projects by portfolio state using deterministic `oc-portfolio` heuristics
 - `oc-portfolio` groups local projects with heuristic-only continue/review/pause/archive triage
@@ -152,6 +160,8 @@ oc-continue openclaw-operator
 - `oc-update <project>` with interactive, file, and piped input for short incremental updates.
 - Clean `context.md` generation with OpenClaw banner cleanup.
 - `oc-continue <project>` for LLM-assisted resume summaries.
+- `oc-help` for command reference.
+- `oc-list` for project-name-only listing.
 - `oc-projects` for portfolio/project listing.
 - `oc-projects --grouped` for compact portfolio-state project listing.
 - `oc-portfolio` for deterministic portfolio triage.
@@ -181,7 +191,7 @@ The project is currently in a CLI portfolio maturity phase: capture works well e
 ## Near-Term Roadmap
 
 - Add richer override inspection, such as a compact report of manual state/intent overrides and their automatic fallback values.
-- Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
+- Keep regression coverage for project identity alignment where `cookbook` and `family-cookbook` both exist.
 - Keep adding regression fixtures only when real captures produce weak, vague, or misleading output.
 - Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, `oc-update`, `oc-projects`, and `oc-portfolio`.
 

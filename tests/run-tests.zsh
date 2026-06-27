@@ -134,7 +134,9 @@ meal_dir="$portfolio_home/Projects/meal-planner"
 smoke_dir="$portfolio_home/Projects/api-smoke-test"
 operator_dir="$portfolio_home/Projects/openclaw-operator"
 validator_dir="$portfolio_home/Projects/context-validator"
-mkdir -p "$meal_dir" "$smoke_dir" "$operator_dir" "$validator_dir"
+cookbook_dir="$portfolio_home/Projects/cookbook"
+family_cookbook_dir="$portfolio_home/Projects/family-cookbook"
+mkdir -p "$meal_dir" "$smoke_dir" "$operator_dir" "$validator_dir" "$cookbook_dir" "$family_cookbook_dir"
 
 cat > "$meal_dir/context.md" <<'EOF'
 # Project Context
@@ -213,6 +215,59 @@ context-validator
 - Add malformed context fixtures.
 EOF
 
+cat > "$cookbook_dir/context.md" <<'EOF'
+# Project Context
+
+## Project
+cookbook
+
+## Current State
+- Test-only duplicate cookbook spike with no useful project purpose.
+
+## In Progress
+- No explicit in-progress work found
+
+## Open Issues
+- Superseded by family-cookbook.
+
+## Next Step
+- Archive the duplicate cookbook spike.
+EOF
+
+cat > "$family_cookbook_dir/context.md" <<'EOF'
+# Project Context
+
+## Project
+cookbook
+
+## Current State
+- Functional family cookbook site is implemented and running locally.
+- Recipe pages build from structured content and preserve a /cookbook/ path prefix.
+
+## In Progress
+- Add continuous integration for schema and link validation.
+
+## Open Issues
+- GitHub Pages validation is not yet automated.
+
+## Next Step
+- Add a GitHub Actions workflow for family-cookbook build validation.
+EOF
+
+list_output="$tmpdir/list-output.txt"
+HOME="$portfolio_home" oc-list > "$list_output"
+assert_contains "$list_output" "cookbook"
+assert_contains "$list_output" "family-cookbook"
+assert_contains "$list_output" "openclaw-operator"
+assert_not_contains "$list_output" "Last Updated"
+
+help_output="$tmpdir/help-output.txt"
+oc-help > "$help_output"
+assert_contains "$help_output" "OPENCLAW-OPERATOR(1)"
+assert_contains "$help_output" "oc-list"
+assert_contains "$help_output" "oc-projects --grouped [state]"
+assert_contains "$help_output" "oc-status <project>"
+
 portfolio_output="$tmpdir/portfolio-output.md"
 HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
 
@@ -223,6 +278,9 @@ assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset; context in
 assert_not_contains "$portfolio_output" "meal-planner - context indicates a test-only"
 assert_not_contains "$portfolio_output" "openclaw-operator - intent: Sunset"
 assert_contains "$portfolio_output" "openclaw-operator - intent: Invest; active in-progress work and concrete next step"
+assert_contains "$portfolio_output" "cookbook - intent: Sunset; context indicates a test-only"
+assert_contains "$portfolio_output" "family-cookbook - intent: Invest; active in-progress work and concrete next step; next: Add a GitHub Actions workflow for family-cookbook build validation."
+assert_not_contains "$portfolio_output" "family-cookbook - intent: Sunset"
 
 assert_contains "$portfolio_output" "meal-planner - intent: Sustain"
 assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset"
@@ -239,6 +297,8 @@ assert_contains "$grouped_projects_output" "## Review"
 assert_contains "$grouped_projects_output" "context-validator - next: Add malformed context fixtures."
 assert_contains "$grouped_projects_output" "## Archive Candidates"
 assert_contains "$grouped_projects_output" "- api-smoke-test"
+assert_contains "$grouped_projects_output" "- cookbook"
+assert_contains "$grouped_projects_output" "family-cookbook - next: Add a GitHub Actions workflow for family-cookbook build validation."
 assert_not_contains "$grouped_projects_output" "intent:"
 assert_not_contains "$grouped_projects_output" "context indicates a test-only"
 

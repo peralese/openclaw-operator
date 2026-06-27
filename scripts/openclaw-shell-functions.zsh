@@ -47,9 +47,101 @@ oc__load_env() {
 
 oc__load_env
 
+oc__projects_root() {
+  echo "$HOME/Projects"
+}
+
+oc__project_context_dirs() {
+  local projects_root
+  projects_root="$(oc__projects_root)"
+
+  [ -d "$projects_root" ] || return 0
+  find "$projects_root" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort
+}
+
 # -------- Project Listing --------
+oc-list() {
+  local projects_root
+  projects_root="$(oc__projects_root)"
+  local found=0
+
+  if [ ! -d "$projects_root" ]; then
+    echo "No project contexts found under ~/Projects"
+    return 0
+  fi
+
+  local project_dir=""
+  while IFS= read -r project_dir; do
+    [ -f "$project_dir/context.md" ] || continue
+    basename "$project_dir"
+    found=1
+  done < <(oc__project_context_dirs)
+
+  if [ "$found" -eq 0 ]; then
+    echo "No project contexts found under ~/Projects"
+  fi
+}
+
+oc-help() {
+  cat <<'EOF'
+OPENCLAW-OPERATOR(1)        OpenClaw Shell Helpers        OPENCLAW-OPERATOR(1)
+
+NAME
+  openclaw-operator - local project context capture, review, and resume helpers
+
+COMMANDS
+  oc-help
+      Show this command reference.
+
+  oc-list
+      List tracked project names only.
+
+  oc-projects
+      Show tracked project contexts with last-updated time and next step.
+
+  oc-projects --grouped [state]
+      Show projects grouped by portfolio state. Optional states: Continue,
+      Maintain, Review, Pause, Archive Candidates, Missing / Thin Context.
+
+  oc-portfolio
+      Show deterministic portfolio triage with state, strategic intent, reason,
+      and next step.
+
+  oc-portfolio --review
+      Show only Review-bucket projects with suggested deterministic actions.
+
+  oc-portfolio-set <project> <state|auto> <intent|auto>
+      Set or clear manual portfolio state and intent overrides.
+
+  oc-status <project>
+      Show deterministic details for one saved project context.
+
+  oc-rescan [check]
+      Report whether each captured source README is current, changed, or missing.
+
+  oc-rescan <project> [input-file]
+      Refresh one project only when its source has changed.
+
+  oc-rescan --all
+      Refresh all changed projects with discoverable source READMEs.
+
+  oc-capture <project> [input-file]
+      Create a project context from broad source material such as a README.
+
+  oc-update <project> [input-file]
+      Apply a short incremental update to an existing project context.
+
+  oc-continue <project>
+      Generate an LLM-assisted resume summary from a saved project context.
+
+SEE ALSO
+  README.md in ~/Projects/openclaw-operator
+EOF
+}
+
 oc-projects() {
-  local projects_root="$HOME/Projects"
+  local projects_root
+  projects_root="$(oc__projects_root)"
   local found=0
   local mode="${1:-}"
   local grouped_state=""
@@ -192,7 +284,7 @@ oc-projects() {
     fi
 
     printf '%-20s %-16s   %s\n' "$project_name" "$last_updated" "$next_step"
-  done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort)
+  done < <(oc__project_context_dirs)
 
   if [ "$found" -eq 0 ]; then
     echo "No project contexts found under ~/Projects"
@@ -267,7 +359,8 @@ oc-portfolio-set() {
 }
 
 oc-portfolio() {
-  local projects_root="$HOME/Projects"
+  local projects_root
+  projects_root="$(oc__projects_root)"
   local stale_days="${OPENCLAW_PORTFOLIO_STALE_DAYS:-45}"
   local mode="${1:-}"
   local now_epoch
@@ -437,8 +530,9 @@ oc-portfolio() {
         in_progress = section_text["In Progress"]
         open_issues = section_text["Open Issues"]
         next_step = first_line["Next Step"]
-        all_text = project " " current_state " " in_progress " " open_issues " " next_step
-        archive_text = project " " current_state " " next_step
+        canonical_project = fallback_project
+        all_text = canonical_project " " current_state " " in_progress " " open_issues " " next_step
+        archive_text = canonical_project " " current_state " " next_step
 
         concrete_next = has_concrete_next_step(next_step)
 
@@ -501,7 +595,7 @@ oc-portfolio() {
         printf "%s\t%s\t%s\t%s\t%s\n", category, intent, fallback_project, reason, next_step
       }
     ' "$context_file" >> "$report_file"
-  done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d -print | sort)
+  done < <(oc__project_context_dirs)
 
   if [ "$found" -eq 0 ]; then
     rm -f "$report_file"
@@ -748,9 +842,7 @@ oc-status() {
     }
 
     END {
-      if (project == "") {
-        project = fallback_project
-      }
+      project = fallback_project
 
       print "Project: " project
       print "Last Updated: " last_updated
@@ -900,7 +992,8 @@ oc__rescan_project() {
 
 oc-rescan() {
   local mode="${1:-check}"
-  local projects_root="$HOME/Projects"
+  local projects_root
+  projects_root="$(oc__projects_root)"
 
   if [ "$mode" != "check" ] && [ "$mode" != "--all" ]; then
     oc__rescan_project "$mode" "$2"
@@ -939,7 +1032,7 @@ oc-rescan() {
     else
       oc__rescan_project "$project_name" "$source_file" || return $?
     fi
-  done < <(find "$projects_root" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -print | sort)
+  done < <(oc__project_context_dirs)
 }
 
 # -------- Context Intake Helpers --------
