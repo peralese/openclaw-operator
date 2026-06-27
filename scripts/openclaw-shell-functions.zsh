@@ -269,8 +269,14 @@ oc-portfolio-set() {
 oc-portfolio() {
   local projects_root="$HOME/Projects"
   local stale_days="${OPENCLAW_PORTFOLIO_STALE_DAYS:-45}"
+  local mode="${1:-}"
   local now_epoch
   now_epoch="$(date +%s)"
+
+  if [ "$#" -gt 1 ] || { [ -n "$mode" ] && [ "$mode" != "--review" ]; }; then
+    echo "Usage: oc-portfolio [--review]"
+    return 1
+  fi
 
   if [ ! -d "$projects_root" ]; then
     echo "No project directories found under ~/Projects"
@@ -500,6 +506,59 @@ oc-portfolio() {
   if [ "$found" -eq 0 ]; then
     rm -f "$report_file"
     echo "No project directories found under ~/Projects"
+    return 0
+  fi
+
+  if [ "$mode" = "--review" ]; then
+    awk -F '\t' '
+      function suggested_action(reason, project, normalized) {
+        normalized = tolower(reason)
+
+        if (normalized ~ /manual state override/) {
+          return "Inspect override with oc-status " project "; keep Review or reset with oc-portfolio-set " project " auto auto."
+        }
+        if (normalized ~ /stale/) {
+          return "Run oc-status " project ", then oc-update or oc-rescan if the saved context is outdated."
+        }
+        if (normalized ~ /open issues|validation gaps/) {
+          return "Review the gaps, then update context or move the project to Continue, Pause, or Archive."
+        }
+        if (normalized ~ /active work is unclear/) {
+          return "Clarify whether this is active work, maintenance, paused work, or an archive candidate."
+        }
+
+        return "Inspect with oc-status " project " and decide whether to update, continue, pause, archive, or override."
+      }
+
+      {
+        if ($1 != "Review") {
+          next
+        }
+
+        count++
+        project[count] = $3
+        reason[count] = $4
+        next_step[count] = $5
+      }
+
+      END {
+        print "# Project Review Queue"
+        if (count == 0) {
+          print "- None"
+          exit
+        }
+
+        for (i = 1; i <= count; i++) {
+          print ""
+          print "## " project[i]
+          print "- Reason: " reason[i]
+          print "- Next: " next_step[i]
+          print "- Suggested action: " suggested_action(reason[i], project[i])
+        }
+      }
+    ' "$report_file"
+
+    rm -f "$report_file"
     return 0
   fi
 

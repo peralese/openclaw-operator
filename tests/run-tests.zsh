@@ -133,7 +133,8 @@ portfolio_home="$tmpdir/home"
 meal_dir="$portfolio_home/Projects/meal-planner"
 smoke_dir="$portfolio_home/Projects/api-smoke-test"
 operator_dir="$portfolio_home/Projects/openclaw-operator"
-mkdir -p "$meal_dir" "$smoke_dir" "$operator_dir"
+validator_dir="$portfolio_home/Projects/context-validator"
+mkdir -p "$meal_dir" "$smoke_dir" "$operator_dir" "$validator_dir"
 
 cat > "$meal_dir/context.md" <<'EOF'
 # Project Context
@@ -193,11 +194,31 @@ openclaw-operator
 - Review oc-portfolio for projects whose next steps need manual overrides.
 EOF
 
+cat > "$validator_dir/context.md" <<'EOF'
+# Project Context
+
+## Project
+context-validator
+
+## Current State
+- Context validation helper has a draft parser and fixture layout.
+
+## In Progress
+- No explicit in-progress work found
+
+## Open Issues
+- Needs validation against malformed context files.
+
+## Next Step
+- Add malformed context fixtures.
+EOF
+
 portfolio_output="$tmpdir/portfolio-output.md"
 HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
 
 assert_contains "$portfolio_output" "## Maintain"
 assert_contains "$portfolio_output" "meal-planner - intent: Sustain; project appears operational"
+assert_contains "$portfolio_output" "context-validator - intent: Explore; context has open issues or validation gaps; next: Add malformed context fixtures."
 assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset; context indicates a test-only"
 assert_not_contains "$portfolio_output" "meal-planner - context indicates a test-only"
 assert_not_contains "$portfolio_output" "openclaw-operator - intent: Sunset"
@@ -215,11 +236,27 @@ assert_contains "$grouped_projects_output" "openclaw-operator - next: Review oc-
 assert_contains "$grouped_projects_output" "## Maintain"
 assert_contains "$grouped_projects_output" "meal-planner - next: Verify the documented startup workflow."
 assert_contains "$grouped_projects_output" "## Review"
-assert_contains "$grouped_projects_output" "- None"
+assert_contains "$grouped_projects_output" "context-validator - next: Add malformed context fixtures."
 assert_contains "$grouped_projects_output" "## Archive Candidates"
 assert_contains "$grouped_projects_output" "- api-smoke-test"
 assert_not_contains "$grouped_projects_output" "intent:"
 assert_not_contains "$grouped_projects_output" "context indicates a test-only"
+
+review_output="$tmpdir/review-output.md"
+HOME="$portfolio_home" oc-portfolio --review > "$review_output"
+assert_contains "$review_output" "# Project Review Queue"
+assert_contains "$review_output" "## context-validator"
+assert_contains "$review_output" "- Reason: context has open issues or validation gaps"
+assert_contains "$review_output" "- Next: Add malformed context fixtures."
+assert_contains "$review_output" "- Suggested action: Review the gaps, then update context or move the project to Continue, Pause, or Archive."
+assert_not_contains "$review_output" "## meal-planner"
+assert_not_contains "$review_output" "## api-smoke-test"
+
+if HOME="$portfolio_home" oc-portfolio --bogus > "$portfolio_output"; then
+  echo "Expected invalid portfolio argument to fail"
+  exit 1
+fi
+assert_contains "$portfolio_output" "Usage: oc-portfolio [--review]"
 
 HOME="$portfolio_home" oc-projects --grouped Continue > "$grouped_projects_output"
 assert_contains "$grouped_projects_output" "# Projects by Portfolio State"

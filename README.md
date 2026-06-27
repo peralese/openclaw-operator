@@ -25,6 +25,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-projects --grouped [state]` — list projects by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using the same deterministic heuristics as `oc-portfolio`
 - `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
+- `oc-portfolio --review` — show Review-bucket projects with reason, next step, and a deterministic suggested action
 - `oc-portfolio-set <project> <state|auto> <intent|auto>` — override a project's computed state and strategic intent
 - `oc-rescan` — report whether each project's captured source README has changed
 - `oc-rescan <project> [input-file]` — refresh one project's context only when its source has changed
@@ -47,6 +48,7 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-projects --grouped` for a compact daily view grouped by portfolio state without reasons or intent labels, or pass a state such as `Continue`, `Review`, `Pause`, `archive`, or `missing` to show one group.
 - Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
+- Run `oc-portfolio --review` for a focused Review queue with why each project needs attention and the likely next decision.
 - Portfolio entries also show strategic intent: Invest, Sustain, Explore, Hold, or Sunset. By default, intent is derived from state; `oc-portfolio-set` can override either dimension while `auto` restores automatic behavior.
 - Run `oc-rescan` to check source README hashes and timestamps without making an LLM call.
 - Run `oc-rescan <project>` to re-run capture for one changed source, or `oc-rescan --all` to refresh all changed sources. The bulk form can make multiple capture/backend calls.
@@ -83,6 +85,7 @@ oc-projects --grouped
 oc-projects --grouped Continue
 oc-projects --grouped archive
 oc-portfolio
+oc-portfolio --review
 oc-portfolio-set openclaw-operator Continue Invest
 oc-portfolio-set openclaw-operator auto auto
 oc-rescan
@@ -109,6 +112,7 @@ oc-continue openclaw-operator
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
 - `oc-projects --grouped [state]` lists projects by portfolio state using deterministic `oc-portfolio` heuristics
 - `oc-portfolio` groups local projects with heuristic-only continue/review/pause/archive triage
+- `oc-portfolio --review` shows a deterministic Review-bucket decision queue
 - `oc-status` shows deterministic project details without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now preprocesses HTML inputs and refuses oversized processed input
@@ -151,6 +155,7 @@ oc-continue openclaw-operator
 - `oc-projects` for portfolio/project listing.
 - `oc-projects --grouped` for compact portfolio-state project listing.
 - `oc-portfolio` for deterministic portfolio triage.
+- `oc-portfolio --review` for focused Review-bucket decisions.
 - `oc-status <project>` for deterministic project detail views.
 - Project isolation validated with at least `openclaw-operator` and `family-cookbook`.
 - Multi-project validation across `family-cookbook`, `Knowledge-Base`, `Plex-Catalogue`, `Simple-Doc-Anonymizer`, and `openclaw-operator`.
@@ -175,7 +180,6 @@ The project is currently in a CLI portfolio maturity phase: capture works well e
 
 ## Near-Term Roadmap
 
-- Add a focused Review-bucket workflow, such as `oc-review` or `oc-portfolio --review`, showing why each project needs attention, its next step, and whether an override/update/archive decision is likely.
 - Add richer override inspection, such as a compact report of manual state/intent overrides and their automatic fallback values.
 - Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
 - Keep adding regression fixtures only when real captures produce weak, vague, or misleading output.
