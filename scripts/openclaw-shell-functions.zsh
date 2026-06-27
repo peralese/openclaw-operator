@@ -51,6 +51,97 @@ oc__load_env
 oc-projects() {
   local projects_root="$HOME/Projects"
   local found=0
+  local mode="${1:-}"
+  local grouped_state=""
+  local requested_group=""
+
+  if [ -n "$mode" ] && [ "$mode" != "--grouped" ]; then
+    echo "Usage: oc-projects [--grouped [state]]"
+    return 1
+  fi
+
+  if [ "$mode" = "--grouped" ]; then
+    requested_group="${(j: :)argv[2,-1]}"
+    if [ -n "$requested_group" ]; then
+      if ! grouped_state="$(oc__canonical_portfolio_state "$requested_group")" || [ "$grouped_state" = "Auto" ]; then
+        echo "Invalid group: $requested_group"
+        echo 'Valid groups: Continue, Maintain, Review, Pause, Archive Candidates, Missing / Thin Context'
+        return 1
+      fi
+    fi
+
+    oc-portfolio | awk -v target_group="$grouped_state" '
+      function section_selected() {
+        return target_group == "" || section == target_group
+      }
+
+      function print_pending_empty_section() {
+        if (section != "" && section_selected() && section_count == 0) {
+          print "- None"
+        }
+      }
+
+      /^No project directories found under/ || /^No project contexts found under/ {
+        print
+        passthrough = 1
+        next
+      }
+
+      /^# Project Portfolio[[:space:]]*$/ {
+        print "# Projects by Portfolio State"
+        next
+      }
+
+      /^## / {
+        print_pending_empty_section()
+        section = substr($0, 4)
+        section_count = 0
+        if (section_selected()) {
+          print ""
+          print "## " section
+        }
+        next
+      }
+
+      /^- None[[:space:]]*$/ {
+        next
+      }
+
+      /^- / {
+        if (!section_selected()) {
+          next
+        }
+
+        entry = substr($0, 3)
+        project = entry
+        sub(/ - intent:.*/, "", project)
+
+        next_step = "None"
+        marker = "; next: "
+        marker_index = index(entry, marker)
+        if (marker_index > 0) {
+          next_step = substr(entry, marker_index + length(marker))
+        }
+
+        if (section == "Archive Candidates") {
+          printf "- %s\n", project
+        } else {
+          printf "- %s - next: %s\n", project, next_step
+        }
+        section_count++
+        next
+      }
+
+      passthrough {
+        next
+      }
+
+      END {
+        print_pending_empty_section()
+      }
+    '
+    return 0
+  fi
 
   if [ ! -d "$projects_root" ]; then
     echo "No project contexts found under ~/Projects"

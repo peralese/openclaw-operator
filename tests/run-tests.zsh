@@ -11,7 +11,7 @@ assert_contains() {
   local file="$1"
   local expected="$2"
 
-  if ! grep -Fq "$expected" "$file"; then
+  if ! grep -Fq -- "$expected" "$file"; then
     echo "Expected to find: $expected"
     echo "In file: $file"
     echo
@@ -24,7 +24,7 @@ assert_not_contains() {
   local file="$1"
   local unexpected="$2"
 
-  if grep -Fq "$unexpected" "$file"; then
+  if grep -Fq -- "$unexpected" "$file"; then
     echo "Did not expect to find: $unexpected"
     echo "In file: $file"
     echo
@@ -39,8 +39,8 @@ assert_before() {
   local second="$3"
   local first_line second_line
 
-  first_line="$(grep -Fn "$first" "$file" | head -n 1 | cut -d: -f1)"
-  second_line="$(grep -Fn "$second" "$file" | tail -n 1 | cut -d: -f1)"
+  first_line="$(grep -Fn -- "$first" "$file" | head -n 1 | cut -d: -f1)"
+  second_line="$(grep -Fn -- "$second" "$file" | tail -n 1 | cut -d: -f1)"
 
   if [ -z "$first_line" ] || [ -z "$second_line" ] || [ "$first_line" -ge "$second_line" ]; then
     echo "Expected '$first' to appear before '$second'"
@@ -206,10 +206,54 @@ assert_contains "$portfolio_output" "openclaw-operator - intent: Invest; active 
 assert_contains "$portfolio_output" "meal-planner - intent: Sustain"
 assert_contains "$portfolio_output" "api-smoke-test - intent: Sunset"
 
+grouped_projects_output="$tmpdir/grouped-projects-output.md"
+HOME="$portfolio_home" oc-projects --grouped > "$grouped_projects_output"
+
+assert_contains "$grouped_projects_output" "# Projects by Portfolio State"
+assert_contains "$grouped_projects_output" "## Continue"
+assert_contains "$grouped_projects_output" "openclaw-operator - next: Review oc-portfolio for projects whose next steps need manual overrides."
+assert_contains "$grouped_projects_output" "## Maintain"
+assert_contains "$grouped_projects_output" "meal-planner - next: Verify the documented startup workflow."
+assert_contains "$grouped_projects_output" "## Review"
+assert_contains "$grouped_projects_output" "- None"
+assert_contains "$grouped_projects_output" "## Archive Candidates"
+assert_contains "$grouped_projects_output" "- api-smoke-test"
+assert_not_contains "$grouped_projects_output" "intent:"
+assert_not_contains "$grouped_projects_output" "context indicates a test-only"
+
+HOME="$portfolio_home" oc-projects --grouped Continue > "$grouped_projects_output"
+assert_contains "$grouped_projects_output" "# Projects by Portfolio State"
+assert_contains "$grouped_projects_output" "## Continue"
+assert_contains "$grouped_projects_output" "openclaw-operator - next: Review oc-portfolio for projects whose next steps need manual overrides."
+assert_not_contains "$grouped_projects_output" "## Maintain"
+assert_not_contains "$grouped_projects_output" "meal-planner"
+
+HOME="$portfolio_home" oc-projects --grouped archive > "$grouped_projects_output"
+assert_contains "$grouped_projects_output" "## Archive Candidates"
+assert_contains "$grouped_projects_output" "- api-smoke-test"
+assert_not_contains "$grouped_projects_output" "## Continue"
+assert_not_contains "$grouped_projects_output" "openclaw-operator"
+
+HOME="$portfolio_home" oc-projects --grouped Archive Candidates > "$grouped_projects_output"
+assert_contains "$grouped_projects_output" "## Archive Candidates"
+assert_contains "$grouped_projects_output" "- api-smoke-test"
+assert_not_contains "$grouped_projects_output" "## Continue"
+
+if HOME="$portfolio_home" oc-projects --grouped Unknown > "$grouped_projects_output"; then
+  echo "Expected invalid grouped state to fail"
+  exit 1
+fi
+assert_contains "$grouped_projects_output" "Invalid group: Unknown"
+assert_contains "$grouped_projects_output" "Valid groups: Continue, Maintain, Review, Pause, Archive Candidates, Missing / Thin Context"
+
 HOME="$portfolio_home" oc-portfolio-set meal-planner Pause Invest > /dev/null
 HOME="$portfolio_home" oc-portfolio > "$portfolio_output"
 assert_contains "$portfolio_output" "## Pause"
 assert_contains "$portfolio_output" "meal-planner - intent: Invest; manual state override (automatic: Maintain)"
+
+HOME="$portfolio_home" oc-projects --grouped > "$grouped_projects_output"
+assert_contains "$grouped_projects_output" "## Pause"
+assert_contains "$grouped_projects_output" "meal-planner - next: Verify the documented startup workflow."
 
 status_output="$tmpdir/status-output.txt"
 HOME="$portfolio_home" oc-status meal-planner > "$status_output"

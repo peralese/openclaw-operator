@@ -23,6 +23,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-plan` — plan next project steps
 - `oc-next` — determine the next action
 - `oc-projects` — list local tracked project contexts under `~/Projects`
+- `oc-projects --grouped [state]` — list projects by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using the same deterministic heuristics as `oc-portfolio`
 - `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
 - `oc-portfolio-set <project> <state|auto> <intent|auto>` — override a project's computed state and strategic intent
 - `oc-rescan` — report whether each project's captured source README has changed
@@ -44,6 +45,7 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 ## Capture / Continue Workflow
 
 - Run `oc-projects` to see available tracked projects with `context.md` files.
+- Run `oc-projects --grouped` for a compact daily view grouped by portfolio state without reasons or intent labels, or pass a state such as `Continue`, `Review`, `Pause`, `archive`, or `missing` to show one group.
 - Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
 - Portfolio entries also show strategic intent: Invest, Sustain, Explore, Hold, or Sunset. By default, intent is derived from state; `oc-portfolio-set` can override either dimension while `auto` restores automatic behavior.
 - Run `oc-rescan` to check source README hashes and timestamps without making an LLM call.
@@ -77,6 +79,9 @@ Example:
 
 ```zsh
 oc-projects
+oc-projects --grouped
+oc-projects --grouped Continue
+oc-projects --grouped archive
 oc-portfolio
 oc-portfolio-set openclaw-operator Continue Invest
 oc-portfolio-set openclaw-operator auto auto
@@ -102,6 +107,7 @@ oc-continue openclaw-operator
 - `oc-capture` and `oc-continue` MVP flow implemented
 - `oc-update` incremental context update flow implemented
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
+- `oc-projects --grouped [state]` lists projects by portfolio state using deterministic `oc-portfolio` heuristics
 - `oc-portfolio` groups local projects with heuristic-only continue/review/pause/archive triage
 - `oc-status` shows deterministic project details without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
@@ -116,7 +122,6 @@ oc-continue openclaw-operator
 ## Known Limitations
 
 - README ingestion still needs validation against more real project READMEs with weak or missing next-step sections.
-- `oc-projects` does not yet group projects by status category.
 - Telegram and email intake are not implemented yet.
 
 # Roadmap
@@ -144,6 +149,7 @@ oc-continue openclaw-operator
 - Clean `context.md` generation with OpenClaw banner cleanup.
 - `oc-continue <project>` for LLM-assisted resume summaries.
 - `oc-projects` for portfolio/project listing.
+- `oc-projects --grouped` for compact portfolio-state project listing.
 - `oc-portfolio` for deterministic portfolio triage.
 - `oc-status <project>` for deterministic project detail views.
 - Project isolation validated with at least `openclaw-operator` and `family-cookbook`.
@@ -169,7 +175,6 @@ The project is currently in a CLI portfolio maturity phase: capture works well e
 
 ## Near-Term Roadmap
 
-- Add grouped project output to `oc-projects`, such as `oc-projects --grouped`, for a compact daily view by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context.
 - Add a focused Review-bucket workflow, such as `oc-review` or `oc-portfolio --review`, showing why each project needs attention, its next step, and whether an override/update/archive decision is likely.
 - Add richer override inspection, such as a compact report of manual state/intent overrides and their automatic fallback values.
 - Fix the comparison/index mapping issue where `cookbook` and `family-cookbook` can report conflicting OpenClaw alignment.
