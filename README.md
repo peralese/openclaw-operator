@@ -25,6 +25,12 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-help` — show a man-style reference for available OpenClaw helper commands
 - `oc-list` — list tracked project names only, with no timestamps or next-step details
 - `oc-idea-import [input-file]` — validate an idea-capture markdown file and save it under `~/Projects/.ideas/`
+- `oc-idea-list` — list imported idea slugs only
+- `oc-ideas` — show imported ideas with captured date, status, and summary
+- `oc-ideas --grouped` — show imported ideas grouped by status
+- `oc-idea-status <idea-slug>` — show one idea's frontmatter and `## Idea` body section
+- `oc-idea-pull <idea-slug>` — print one idea file for copy-paste into a fresh ideation chat
+- `oc-idea-promote <idea-slug> [project-name]` — turn an imported idea into a tracked project via `oc-capture`
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-projects --grouped [state]` — list projects by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using the same deterministic heuristics as `oc-portfolio`
 - `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
@@ -51,6 +57,8 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 - Run `oc-help` to see a man-style command reference in the terminal.
 - Run `oc-list` when you only need project names with no extra columns.
 - Run `oc-idea-import idea.md` to import a saved Idea Capture Agent markdown file into `~/Projects/.ideas/` without calling an LLM.
+- Run `oc-idea-list`, `oc-ideas`, `oc-idea-status <idea-slug>`, or `oc-idea-pull <idea-slug>` to browse and reuse imported ideas without calling an LLM.
+- Run `oc-idea-promote <idea-slug> [project-name]` to create a real project context from an imported idea using the existing `oc-capture` pipeline.
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-projects --grouped` for a compact daily view grouped by portfolio state without reasons or intent labels, or pass a state such as `Continue`, `Review`, `Pause`, `archive`, or `missing` to show one group.
 - Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
@@ -90,6 +98,11 @@ oc-projects
 oc-list
 oc-help
 oc-idea-import idea.md
+oc-idea-list
+oc-ideas --grouped
+oc-idea-status idea-2026-0629-voice-cookbook
+oc-idea-pull idea-2026-0629-voice-cookbook | pbcopy
+oc-idea-promote idea-2026-0629-voice-cookbook
 oc-projects --grouped
 oc-projects --grouped Continue
 oc-projects --grouped archive

@@ -114,6 +114,9 @@ COMMANDS
   oc-idea-pull <slug>
       Print one imported idea file for copy-paste into a new chat.
 
+  oc-idea-promote <idea-slug> [project-name]
+      Promote an imported idea into a tracked project via oc-capture.
+
   oc-projects
       Show tracked project contexts with last-updated time and next step.
 
@@ -202,6 +205,14 @@ oc__idea_display_value() {
   echo "$value"
 }
 
+oc__slugify_idea_title() {
+  local title="$1"
+
+  oc__idea_display_value "$title" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed 's/[^a-z0-9][^a-z0-9]*/-/g; s/^-//; s/-$//'
+}
+
 oc__idea_file_for_slug() {
   local slug="$1"
   local ideas_dir
@@ -246,6 +257,39 @@ oc__print_idea_not_found() {
   if [ "$found" -eq 0 ]; then
     echo "No ideas found under ~/Projects/.ideas"
   fi
+}
+
+oc__update_idea_promotion_frontmatter() {
+  local idea_file="$1"
+  local project_name="$2"
+  local temp_file
+  temp_file="$(mktemp)"
+
+  awk -v project_name="$project_name" '
+    NR == 1 && $0 == "---" {
+      in_frontmatter = 1
+      print
+      next
+    }
+    in_frontmatter && $0 == "---" {
+      in_frontmatter = 0
+      print
+      next
+    }
+    in_frontmatter && /^status:[[:space:]]*/ {
+      print "status: promoted"
+      next
+    }
+    in_frontmatter && /^promoted_to:[[:space:]]*/ {
+      print "promoted_to: " project_name
+      next
+    }
+    {
+      print
+    }
+  ' "$idea_file" > "$temp_file"
+
+  mv "$temp_file" "$idea_file"
 }
 
 oc__idea_has_frontmatter() {
@@ -569,6 +613,67 @@ oc-idea-pull() {
   fi
 
   cat "$idea_file"
+}
+
+oc-idea-promote() {
+  local slug="${1:-}"
+  local project_name="${2:-}"
+
+  if [ -z "$slug" ]; then
+    echo "Usage: oc-idea-promote <idea-slug> [project-name]"
+    return 1
+  fi
+
+  local idea_file
+  if ! idea_file="$(oc__idea_file_for_slug "$slug")"; then
+    oc__print_idea_not_found "$slug"
+    return 1
+  fi
+
+  local idea_status promoted_to
+  idea_status="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "status")")"
+  promoted_to="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "promoted_to")")"
+
+  if [ "$idea_status" = "promoted" ]; then
+    echo "Idea already promoted: $slug"
+    if [ -n "$promoted_to" ] && [ "$promoted_to" != "null" ]; then
+      echo "Promoted to: $promoted_to"
+    fi
+    return 1
+  fi
+
+  if [ -z "$project_name" ]; then
+    local title
+    title="$(oc__idea_frontmatter_value "$idea_file" "title")"
+    project_name="$(oc__slugify_idea_title "$title")"
+  fi
+
+  if [ -z "$project_name" ]; then
+    echo "Could not derive project name from idea title."
+    echo "Usage: oc-idea-promote <idea-slug> [project-name]"
+    return 1
+  fi
+
+  local project_dir="$HOME/Projects/$project_name"
+  if [ -e "$project_dir" ]; then
+    echo "Project already exists: ~/Projects/$project_name"
+    echo "Choose a different project name and retry: oc-idea-promote $slug <project-name>"
+    return 1
+  fi
+
+  if ! oc-capture "$project_name" "$idea_file"; then
+    if [ -d "$project_dir" ] && [ -z "$(find "$project_dir" -mindepth 1 -print -quit)" ]; then
+      rmdir "$project_dir"
+    fi
+    echo "Idea promotion failed; idea file was not updated."
+    return 1
+  fi
+
+  oc__update_idea_promotion_frontmatter "$idea_file" "$project_name"
+
+  echo "Promoted idea: $slug"
+  echo "Project: $project_name"
+  echo "Idea updated: $idea_file"
 }
 
 oc-projects() {

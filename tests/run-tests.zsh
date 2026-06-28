@@ -357,6 +357,97 @@ if HOME="$empty_ideas_home" oc-idea-pull missing > "$empty_ideas_output"; then
 fi
 assert_contains "$empty_ideas_output" "No ideas found under ~/Projects/.ideas"
 
+oc-capture() {
+  local project_name="$1"
+  local input_file="$2"
+  local project_dir="$HOME/Projects/$project_name"
+
+  mkdir -p "$project_dir"
+  printf '%s\t%s\n' "$project_name" "$input_file" >> "$HOME/capture-calls.log"
+
+  if [ "${OPENCLAW_TEST_CAPTURE_FAIL:-0}" = "1" ]; then
+    return 1
+  fi
+
+  cat > "$project_dir/context.md" <<EOF
+# Project Context
+
+## Project
+$project_name
+
+## Current State
+- Captured from idea fixture.
+
+## In Progress
+- No explicit in-progress work found
+
+## Open Issues
+- No explicit open issues found
+
+## Next Step
+- Review promoted idea context.
+
+## Suggested Resume Prompt
+"Resume $project_name from the promoted idea."
+EOF
+}
+
+promote_home="$tmpdir/promote-home"
+promote_ideas_dir="$promote_home/Projects/.ideas"
+mkdir -p "$promote_ideas_dir"
+cp "$repo_root"/tests/fixtures/ideas/*.md "$promote_ideas_dir/"
+
+promote_output="$tmpdir/promote-output.txt"
+HOME="$promote_home" oc-idea-promote idea-2026-0629-voice-cookbook > "$promote_output"
+assert_contains "$promote_output" "Promoted idea: idea-2026-0629-voice-cookbook"
+assert_contains "$promote_output" "Project: voice-driven-cookbook-ingestion"
+assert_contains "$promote_home/Projects/voice-driven-cookbook-ingestion/context.md" "## Project"
+assert_contains "$promote_home/Projects/voice-driven-cookbook-ingestion/context.md" "voice-driven-cookbook-ingestion"
+assert_contains "$promote_home/Projects/.ideas/idea-2026-0629-voice-cookbook.md" "status: promoted"
+assert_contains "$promote_home/Projects/.ideas/idea-2026-0629-voice-cookbook.md" "promoted_to: voice-driven-cookbook-ingestion"
+assert_contains "$promote_home/capture-calls.log" "voice-driven-cookbook-ingestion"
+assert_contains "$promote_home/capture-calls.log" "$promote_home/Projects/.ideas/idea-2026-0629-voice-cookbook.md"
+
+collision_output="$tmpdir/promote-collision-output.txt"
+mkdir -p "$promote_home/Projects/existing-collision"
+if HOME="$promote_home" oc-idea-promote idea-2026-0629-collision-path existing-collision > "$collision_output"; then
+  echo "Expected idea promotion with project collision to fail"
+  exit 1
+fi
+assert_contains "$collision_output" "Project already exists: ~/Projects/existing-collision"
+assert_contains "$promote_home/Projects/.ideas/idea-2026-0629-collision-path.md" "status: raw"
+assert_contains "$promote_home/Projects/.ideas/idea-2026-0629-collision-path.md" "promoted_to: null"
+assert_not_contains "$promote_home/capture-calls.log" "existing-collision"
+
+already_promoted_output="$tmpdir/already-promoted-output.txt"
+if HOME="$promote_home" oc-idea-promote idea-2026-0629-already-promoted > "$already_promoted_output"; then
+  echo "Expected already-promoted idea to fail"
+  exit 1
+fi
+assert_contains "$already_promoted_output" "Idea already promoted: idea-2026-0629-already-promoted"
+assert_contains "$already_promoted_output" "Promoted to: existing-promoted-project"
+if [ -e "$promote_home/Projects/already-promoted" ]; then
+  echo "Expected already-promoted idea not to create a project directory"
+  exit 1
+fi
+
+failed_promote_home="$tmpdir/failed-promote-home"
+failed_promote_ideas_dir="$failed_promote_home/Projects/.ideas"
+mkdir -p "$failed_promote_ideas_dir"
+cp "$repo_root/tests/fixtures/ideas/idea-2026-0629-collision-path.md" "$failed_promote_ideas_dir/"
+failed_promote_output="$tmpdir/failed-promote-output.txt"
+if HOME="$failed_promote_home" OPENCLAW_TEST_CAPTURE_FAIL=1 oc-idea-promote idea-2026-0629-collision-path capture-fails > "$failed_promote_output"; then
+  echo "Expected failed oc-capture promotion to fail"
+  exit 1
+fi
+assert_contains "$failed_promote_output" "Idea promotion failed; idea file was not updated."
+if [ -e "$failed_promote_home/Projects/capture-fails" ]; then
+  echo "Expected failed empty promotion project directory to be removed"
+  exit 1
+fi
+assert_contains "$failed_promote_home/Projects/.ideas/idea-2026-0629-collision-path.md" "status: raw"
+assert_contains "$failed_promote_home/Projects/.ideas/idea-2026-0629-collision-path.md" "promoted_to: null"
+
 portfolio_home="$tmpdir/home"
 meal_dir="$portfolio_home/Projects/meal-planner"
 smoke_dir="$portfolio_home/Projects/api-smoke-test"
@@ -498,6 +589,7 @@ assert_contains "$help_output" "oc-idea-list"
 assert_contains "$help_output" "oc-ideas --grouped"
 assert_contains "$help_output" "oc-idea-status <slug>"
 assert_contains "$help_output" "oc-idea-pull <slug>"
+assert_contains "$help_output" "oc-idea-promote <idea-slug> [project-name]"
 assert_contains "$help_output" "oc-projects --grouped [state]"
 assert_contains "$help_output" "oc-status <project>"
 
