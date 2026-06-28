@@ -264,6 +264,99 @@ if HOME="$idea_home" oc-idea-import "$invalid_idea_fixture" > "$idea_import_outp
 fi
 assert_contains "$idea_import_output" "Invalid idea status: explored"
 
+ideas_home="$tmpdir/ideas-home"
+ideas_dir="$ideas_home/Projects/.ideas"
+mkdir -p "$ideas_dir"
+cp "$repo_root"/tests/fixtures/ideas/*.md "$ideas_dir/"
+
+idea_list_output="$tmpdir/idea-list-output.txt"
+HOME="$ideas_home" oc-idea-list > "$idea_list_output"
+assert_contains "$idea_list_output" "idea-2026-0627-local-idea-capture"
+assert_contains "$idea_list_output" "idea-2026-0628-recipe-remix"
+assert_contains "$idea_list_output" "idea-2026-0628-quiet-dashboard"
+assert_before "$idea_list_output" "idea-2026-0627-local-idea-capture" "idea-2026-0628-recipe-remix"
+
+ideas_output="$tmpdir/ideas-output.txt"
+HOME="$ideas_home" oc-ideas > "$ideas_output"
+assert_contains "$ideas_output" "Idea                                     Captured     Status"
+assert_contains "$ideas_output" "idea-2026-0627-local-idea-capture"
+assert_contains "$ideas_output" "2026-06-27   raw"
+assert_contains "$ideas_output" "Capture raw application ideas into deterministic markdown files for later promotion."
+assert_contains "$ideas_output" "idea-2026-0628-recipe-remix"
+assert_contains "$ideas_output" "2026-06-28   explored"
+assert_contains "$ideas_output" "Turn leftover ingredients into a short list of realistic dinner options."
+assert_contains "$ideas_output" "idea-2026-0628-quiet-dashboard"
+assert_contains "$ideas_output" "2026-06-28   shelved"
+assert_contains "$ideas_output" "None"
+
+grouped_ideas_output="$tmpdir/grouped-ideas-output.md"
+HOME="$ideas_home" oc-ideas --grouped > "$grouped_ideas_output"
+assert_contains "$grouped_ideas_output" "# Ideas by Status"
+assert_contains "$grouped_ideas_output" "## raw"
+assert_contains "$grouped_ideas_output" "- idea-2026-0627-local-idea-capture - captured: 2026-06-27; Capture raw application ideas into deterministic markdown files for later promotion."
+assert_contains "$grouped_ideas_output" "## explored"
+assert_contains "$grouped_ideas_output" "- idea-2026-0628-recipe-remix - captured: 2026-06-28; Turn leftover ingredients into a short list of realistic dinner options."
+assert_contains "$grouped_ideas_output" "## scoped"
+assert_contains "$grouped_ideas_output" "- None"
+assert_contains "$grouped_ideas_output" "## shelved"
+assert_contains "$grouped_ideas_output" "- idea-2026-0628-quiet-dashboard - captured: 2026-06-28"
+assert_contains "$grouped_ideas_output" "## rejected"
+assert_contains "$grouped_ideas_output" "## promoted"
+assert_before "$grouped_ideas_output" "## raw" "## explored"
+assert_before "$grouped_ideas_output" "## explored" "## scoped"
+assert_before "$grouped_ideas_output" "## scoped" "## shelved"
+assert_before "$grouped_ideas_output" "## shelved" "## rejected"
+assert_before "$grouped_ideas_output" "## rejected" "## promoted"
+
+idea_status_output="$tmpdir/idea-status-output.md"
+HOME="$ideas_home" oc-idea-status idea-2026-0627-local-idea-capture > "$idea_status_output"
+assert_contains "$idea_status_output" "---"
+assert_contains "$idea_status_output" "id: idea-2026-0627-local-idea-capture"
+assert_contains "$idea_status_output" "status: raw"
+assert_contains "$idea_status_output" "## Idea"
+assert_contains "$idea_status_output" "Capture early-stage app ideas as structured markdown before they become full projects."
+assert_not_contains "$idea_status_output" "## Open questions"
+
+idea_missing_output="$tmpdir/idea-missing-output.txt"
+if HOME="$ideas_home" oc-idea-status recipe > "$idea_missing_output"; then
+  echo "Expected missing idea status lookup to fail"
+  exit 1
+fi
+assert_contains "$idea_missing_output" "Idea not found: recipe"
+assert_contains "$idea_missing_output" "Close matches:"
+assert_contains "$idea_missing_output" "- idea-2026-0628-recipe-remix"
+
+if HOME="$ideas_home" oc-idea-status absent > "$idea_missing_output"; then
+  echo "Expected absent idea status lookup to fail"
+  exit 1
+fi
+assert_contains "$idea_missing_output" "Idea not found: absent"
+assert_contains "$idea_missing_output" "Available ideas:"
+assert_contains "$idea_missing_output" "- idea-2026-0627-local-idea-capture"
+
+idea_pull_output="$tmpdir/idea-pull-output.md"
+HOME="$ideas_home" oc-idea-pull idea-2026-0628-recipe-remix > "$idea_pull_output"
+assert_contains "$idea_pull_output" "---"
+assert_contains "$idea_pull_output" "source: claude"
+assert_contains "$idea_pull_output" "tags: [cooking, planning]"
+assert_contains "$idea_pull_output" "Build a lightweight recipe remix helper"
+assert_contains "$idea_pull_output" "## Open questions"
+assert_contains "$idea_pull_output" "## Update Log"
+
+empty_ideas_home="$tmpdir/empty-ideas-home"
+empty_ideas_output="$tmpdir/empty-ideas-output.txt"
+HOME="$empty_ideas_home" oc-idea-list > "$empty_ideas_output"
+assert_contains "$empty_ideas_output" "No ideas found under ~/Projects/.ideas"
+HOME="$empty_ideas_home" oc-ideas > "$empty_ideas_output"
+assert_contains "$empty_ideas_output" "No ideas found under ~/Projects/.ideas"
+HOME="$empty_ideas_home" oc-ideas --grouped > "$empty_ideas_output"
+assert_contains "$empty_ideas_output" "No ideas found under ~/Projects/.ideas"
+if HOME="$empty_ideas_home" oc-idea-pull missing > "$empty_ideas_output"; then
+  echo "Expected missing idea pull to fail"
+  exit 1
+fi
+assert_contains "$empty_ideas_output" "No ideas found under ~/Projects/.ideas"
+
 portfolio_home="$tmpdir/home"
 meal_dir="$portfolio_home/Projects/meal-planner"
 smoke_dir="$portfolio_home/Projects/api-smoke-test"
@@ -401,6 +494,10 @@ oc-help > "$help_output"
 assert_contains "$help_output" "OPENCLAW-OPERATOR(1)"
 assert_contains "$help_output" "oc-list"
 assert_contains "$help_output" "oc-idea-import [input-file]"
+assert_contains "$help_output" "oc-idea-list"
+assert_contains "$help_output" "oc-ideas --grouped"
+assert_contains "$help_output" "oc-idea-status <slug>"
+assert_contains "$help_output" "oc-idea-pull <slug>"
 assert_contains "$help_output" "oc-projects --grouped [state]"
 assert_contains "$help_output" "oc-status <project>"
 

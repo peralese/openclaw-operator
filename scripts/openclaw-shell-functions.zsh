@@ -99,6 +99,21 @@ COMMANDS
   oc-idea-import [input-file]
       Validate an idea-capture markdown file and save it under ~/Projects/.ideas.
 
+  oc-idea-list
+      List imported idea slugs only.
+
+  oc-ideas
+      Show imported ideas with captured date, status, and summary.
+
+  oc-ideas --grouped
+      Show imported ideas grouped by status.
+
+  oc-idea-status <slug>
+      Show frontmatter and the Idea section for one imported idea.
+
+  oc-idea-pull <slug>
+      Print one imported idea file for copy-paste into a new chat.
+
   oc-projects
       Show tracked project contexts with last-updated time and next step.
 
@@ -165,6 +180,72 @@ oc__idea_frontmatter_value() {
       }
     }
   ' "$idea_file"
+}
+
+oc__ideas_dir() {
+  echo "$HOME/Projects/.ideas"
+}
+
+oc__idea_files() {
+  local ideas_dir
+  ideas_dir="$(oc__ideas_dir)"
+
+  [ -d "$ideas_dir" ] || return 0
+  find "$ideas_dir" -mindepth 1 -maxdepth 1 -type f -name '*.md' -print | sort
+}
+
+oc__idea_display_value() {
+  local value="$1"
+
+  value="${value#\"}"
+  value="${value%\"}"
+  echo "$value"
+}
+
+oc__idea_file_for_slug() {
+  local slug="$1"
+  local ideas_dir
+  ideas_dir="$(oc__ideas_dir)"
+
+  [ -n "$slug" ] || return 1
+  [ -f "$ideas_dir/$slug.md" ] || return 1
+  echo "$ideas_dir/$slug.md"
+}
+
+oc__print_idea_not_found() {
+  local slug="$1"
+  local found=0
+  local idea_file idea_slug
+
+  echo "Idea not found: $slug"
+
+  while IFS= read -r idea_file; do
+    idea_slug="$(basename "$idea_file" .md)"
+    if [[ "$idea_slug" == *"$slug"* ]] || [[ "$slug" == *"$idea_slug"* ]]; then
+      if [ "$found" -eq 0 ]; then
+        echo "Close matches:"
+      fi
+      echo "- $idea_slug"
+      found=1
+    fi
+  done < <(oc__idea_files)
+
+  if [ "$found" -eq 1 ]; then
+    return 0
+  fi
+
+  found=0
+  while IFS= read -r idea_file; do
+    if [ "$found" -eq 0 ]; then
+      echo "Available ideas:"
+    fi
+    basename "$idea_file" .md | sed 's/^/- /'
+    found=1
+  done < <(oc__idea_files)
+
+  if [ "$found" -eq 0 ]; then
+    echo "No ideas found under ~/Projects/.ideas"
+  fi
 }
 
 oc__idea_has_frontmatter() {
@@ -315,6 +396,179 @@ oc-idea-import() {
 
   echo "Imported idea: $final_id"
   echo "Saved to: $output_file"
+}
+
+oc-idea-list() {
+  local ideas_dir
+  ideas_dir="$(oc__ideas_dir)"
+  local found=0
+
+  if [ ! -d "$ideas_dir" ]; then
+    echo "No ideas found under ~/Projects/.ideas"
+    return 0
+  fi
+
+  local idea_file=""
+  while IFS= read -r idea_file; do
+    basename "$idea_file" .md
+    found=1
+  done < <(oc__idea_files)
+
+  if [ "$found" -eq 0 ]; then
+    echo "No ideas found under ~/Projects/.ideas"
+  fi
+}
+
+oc-ideas() {
+  local ideas_dir
+  ideas_dir="$(oc__ideas_dir)"
+  local found=0
+  local mode="${1:-}"
+
+  if [ -n "$mode" ] && [ "$mode" != "--grouped" ]; then
+    echo "Usage: oc-ideas [--grouped]"
+    return 1
+  fi
+
+  if [ ! -d "$ideas_dir" ]; then
+    echo "No ideas found under ~/Projects/.ideas"
+    return 0
+  fi
+
+  if [ "$mode" = "--grouped" ]; then
+    local idea_rows
+    idea_rows="$(
+      local idea_file slug captured idea_status one_line
+      while IFS= read -r idea_file; do
+        slug="$(basename "$idea_file" .md)"
+        captured="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "captured")")"
+        idea_status="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "status")")"
+        one_line="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "one_line")")"
+        printf '%s\t%s\t%s\t%s\n' "$idea_status" "$slug" "$captured" "$one_line"
+      done < <(oc__idea_files)
+    )"
+
+    if [ -z "$idea_rows" ]; then
+      echo "No ideas found under ~/Projects/.ideas"
+      return 0
+    fi
+
+    printf '%s\n' "$idea_rows" | awk -F '\t' '
+      BEGIN {
+        order[1] = "raw"
+        order[2] = "explored"
+        order[3] = "scoped"
+        order[4] = "shelved"
+        order[5] = "rejected"
+        order[6] = "promoted"
+        print "# Ideas by Status"
+      }
+      {
+        status = $1
+        row = "- " $2 " - captured: " $3
+        if ($4 != "") {
+          row = row "; " $4
+        }
+        rows[status] = rows[status] row "\n"
+        counts[status]++
+      }
+      END {
+        for (i = 1; i <= 6; i++) {
+          status = order[i]
+          print ""
+          print "## " status
+          if (counts[status] == 0) {
+            print "- None"
+          } else {
+            printf "%s", rows[status]
+          }
+        }
+      }
+    '
+    return 0
+  fi
+
+  local idea_file=""
+  while IFS= read -r idea_file; do
+    if [ "$found" -eq 0 ]; then
+      printf '%-40s %-12s %-10s   %s\n' "Idea" "Captured" "Status" "Summary"
+      printf '%-40s %-12s %-10s   %s\n' "----------------------------------------" "------------" "----------" "----------------------------------------"
+      found=1
+    fi
+
+    slug="$(basename "$idea_file" .md)"
+    captured="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "captured")")"
+    idea_status="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "status")")"
+    one_line="$(oc__idea_display_value "$(oc__idea_frontmatter_value "$idea_file" "one_line")")"
+
+    [ -n "$captured" ] || captured="None"
+    [ -n "$idea_status" ] || idea_status="None"
+    [ -n "$one_line" ] || one_line="None"
+
+    printf '%-40s %-12s %-10s   %s\n' "$slug" "$captured" "$idea_status" "$one_line"
+  done < <(oc__idea_files)
+
+  if [ "$found" -eq 0 ]; then
+    echo "No ideas found under ~/Projects/.ideas"
+  fi
+}
+
+oc-idea-status() {
+  local slug="${1:-}"
+
+  if [ -z "$slug" ]; then
+    echo "Usage: oc-idea-status <slug>"
+    return 1
+  fi
+
+  local idea_file
+  if ! idea_file="$(oc__idea_file_for_slug "$slug")"; then
+    oc__print_idea_not_found "$slug"
+    return 1
+  fi
+
+  awk '
+    NR == 1 && $0 == "---" {
+      in_frontmatter = 1
+      print
+      next
+    }
+    in_frontmatter {
+      print
+      if ($0 == "---") {
+        in_frontmatter = 0
+      }
+      next
+    }
+    /^##[[:space:]]+Idea[[:space:]]*$/ {
+      in_idea = 1
+      print
+      next
+    }
+    in_idea && /^##[[:space:]]+/ {
+      exit
+    }
+    in_idea {
+      print
+    }
+  ' "$idea_file"
+}
+
+oc-idea-pull() {
+  local slug="${1:-}"
+
+  if [ -z "$slug" ]; then
+    echo "Usage: oc-idea-pull <slug>"
+    return 1
+  fi
+
+  local idea_file
+  if ! idea_file="$(oc__idea_file_for_slug "$slug")"; then
+    oc__print_idea_not_found "$slug"
+    return 1
+  fi
+
+  cat "$idea_file"
 }
 
 oc-projects() {
