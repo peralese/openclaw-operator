@@ -24,6 +24,7 @@ Build a small self-documenting repo for the first OpenClaw operator: a CLI-based
 - `oc-next` — determine the next action
 - `oc-help` — show a man-style reference for available OpenClaw helper commands
 - `oc-list` — list tracked project names only, with no timestamps or next-step details
+- `oc-idea-import [input-file]` — validate an idea-capture markdown file and save it under `~/Projects/.ideas/`
 - `oc-projects` — list local tracked project contexts under `~/Projects`
 - `oc-projects --grouped [state]` — list projects by Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using the same deterministic heuristics as `oc-portfolio`
 - `oc-portfolio` — group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context
@@ -49,6 +50,7 @@ The shell helpers load local API/backend settings from `.env` by default. Copy `
 
 - Run `oc-help` to see a man-style command reference in the terminal.
 - Run `oc-list` when you only need project names with no extra columns.
+- Run `oc-idea-import idea.md` to import a saved Idea Capture Agent markdown file into `~/Projects/.ideas/` without calling an LLM.
 - Run `oc-projects` to see available tracked projects with `context.md` files.
 - Run `oc-projects --grouped` for a compact daily view grouped by portfolio state without reasons or intent labels, or pass a state such as `Continue`, `Review`, `Pause`, `archive`, or `missing` to show one group.
 - Run `oc-portfolio` to group projects into Continue, Maintain, Review, Pause, Archive Candidates, and Missing / Thin Context using deterministic heuristics only.
@@ -87,6 +89,7 @@ Example:
 oc-projects
 oc-list
 oc-help
+oc-idea-import idea.md
 oc-projects --grouped
 oc-projects --grouped Continue
 oc-projects --grouped archive
@@ -117,6 +120,7 @@ oc-continue openclaw-operator
 - `oc-update` incremental context update flow implemented
 - `oc-help` shows a man-style terminal reference for available helper commands
 - `oc-list` shows project names only for compact scripting and selection
+- `oc-idea-import` validates deterministic idea-capture markdown and writes accepted ideas under `~/Projects/.ideas/`
 - `oc-projects` lists tracked local project contexts without calling OpenClaw
 - `oc-projects --grouped [state]` lists projects by portfolio state using deterministic `oc-portfolio` heuristics
 - `oc-portfolio` groups local projects with heuristic-only continue/review/pause/archive triage
@@ -124,12 +128,14 @@ oc-continue openclaw-operator
 - `oc-status` shows deterministic project details without calling OpenClaw
 - `oc-capture` uses isolated capture session IDs
 - `oc-capture` now preprocesses HTML inputs and refuses oversized processed input
-- `oc-capture` prioritizes operational README sections before broad setup, architecture, or feature documentation
+- `oc-capture` prioritizes operational README sections before broad setup, architecture, or feature documentation, including weak next-step patterns such as Roadmap Notes, Later / nice to have, Current MVP, and Future Enhancement
 - `oc-capture` and `oc-update` do not overwrite `context.md` unless valid `# Project Context` output is produced
+- `oc-capture` output validation now requires all required context sections to be present and non-empty
 - `oc-continue` returns concise operational resume summaries with fixed sections
 - Project validation showed framework behavior and project isolation are working correctly
 - Prompt rules reduce drift into speculative OpenClaw internals
-- Local regression tests cover operational README section prioritization and plain input pass-through
+- Idea Capture Agent prompt added for free-form brainstorming sessions that end in importable markdown
+- Local regression tests cover operational README section prioritization, weak/missing next-step README fixtures, stricter context validation, and plain input pass-through
 
 ## Known Limitations
 
@@ -162,6 +168,7 @@ oc-continue openclaw-operator
 - `oc-continue <project>` for LLM-assisted resume summaries.
 - `oc-help` for command reference.
 - `oc-list` for project-name-only listing.
+- `oc-idea-import` for deterministic idea backlog imports.
 - `oc-projects` for portfolio/project listing.
 - `oc-projects --grouped` for compact portfolio-state project listing.
 - `oc-portfolio` for deterministic portfolio triage.
@@ -172,6 +179,8 @@ oc-continue openclaw-operator
 - `oc-projects` confirmed to extract `Next Step` values when present.
 - README section prioritization for `oc-capture`, with regression coverage for operational section front-loading.
 - Real README regression fixtures added for `Plex_Catalogue` and `Simple-Doc-Anonymizer`.
+- Weak/missing next-step README regression fixtures added for Roadmap Notes, Later / nice to have, Phase Roadmap, and Future Enhancement patterns.
+- Idea Capture Agent and importer validation added for raw idea backlog capture.
 - Source baselines refreshed across the active project portfolio, with archive candidates intentionally skipped where appropriate.
 - Manual portfolio overrides validated for maintain, pause, and archive/sunset decisions.
 
@@ -182,6 +191,7 @@ Project validation showed the framework is functioning correctly; current effort
 - Use OpenAI-backed `oc-capture` for initial project synthesis.
 - Use local `oc-update` for short incremental project updates.
 - Keep project contexts compact, valid, and non-destructively updated.
+- Keep validating `oc-capture` against real READMEs with weak or implied next steps before broadening intake channels.
 - Make daily portfolio review faster and more useful after the initial capture/rescan foundation.
 - Refine deterministic portfolio views for deciding which projects to continue, maintain, review, pause, or archive.
 - Keep manual state/intent overrides inspectable while avoiding accidental archive or duplicate-project classifications.
@@ -192,7 +202,7 @@ The project is currently in a CLI portfolio maturity phase: capture works well e
 
 - Add richer override inspection, such as a compact report of manual state/intent overrides and their automatic fallback values.
 - Keep regression coverage for project identity alignment where `cookbook` and `family-cookbook` both exist.
-- Keep adding regression fixtures only when real captures produce weak, vague, or misleading output.
+- Keep adding regression fixtures when real captures produce weak, vague, misleading, or structurally incomplete output.
 - Add guidance for when to use `oc-status`, `oc-continue`, `oc-capture`, `oc-update`, `oc-projects`, and `oc-portfolio`.
 
 ## Mid-Term Roadmap

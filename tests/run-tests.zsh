@@ -129,6 +129,141 @@ assert_contains "$anonymizer_output" "FULL RAW PROJECT UPDATE:"
 assert_before "$anonymizer_output" "## Known Limitations" "## Setup"
 assert_before "$anonymizer_output" "If the span merger is joining spans that should stay separate" "python detect.py --doc input/sample_document.txt"
 
+weak_next_fixture="$repo_root/tests/fixtures/readmes/Weak_Next_Steps.md"
+weak_next_output="$tmpdir/weak-next-prioritized.md"
+
+oc__prioritize_operational_sections "$weak_next_fixture" "$weak_next_output"
+
+assert_contains "$weak_next_output" "OPERATIONAL README SECTION EXCERPTS:"
+assert_contains "$weak_next_output" "## Current MVP"
+assert_contains "$weak_next_output" "## Roadmap Notes"
+assert_contains "$weak_next_output" "## Later / nice to have"
+assert_contains "$weak_next_output" "Phone notifications are not implemented yet."
+assert_before "$weak_next_output" "Phone notifications are not implemented yet." "Run the app locally with the documented command."
+
+phase_roadmap_fixture="$repo_root/tests/fixtures/readmes/Phase_Roadmap.md"
+phase_roadmap_output="$tmpdir/phase-roadmap-prioritized.md"
+
+oc__prioritize_operational_sections "$phase_roadmap_fixture" "$phase_roadmap_output"
+
+assert_contains "$phase_roadmap_output" "OPERATIONAL README SECTION EXCERPTS:"
+assert_contains "$phase_roadmap_output" "## Phase 2 Roadmap"
+assert_contains "$phase_roadmap_output" "### Future Enhancement - Document Ingestion Engine"
+assert_contains "$phase_roadmap_output" "Evaluate uploaded PDF, DOCX, and PPTX parsing before adding dependencies."
+assert_before "$phase_roadmap_output" "## Phase 2 Roadmap" "## Getting Started"
+
+valid_context_fixture="$tmpdir/valid-context.md"
+cat > "$valid_context_fixture" <<'EOF'
+# Project Context
+
+## Project
+weak-next-steps
+
+## Current State
+- Local server is implemented.
+
+## In Progress
+- No explicit in-progress work found
+
+## Open Issues
+- Phone notifications are not implemented yet.
+
+## Next Step
+- Inferred: Implement phone notifications for due and overdue reminders.
+
+## Suggested Resume Prompt
+"Resume weak-next-steps and implement phone notifications."
+EOF
+
+oc__has_valid_context_output "$valid_context_fixture"
+
+invalid_context_fixture="$tmpdir/invalid-context.md"
+cat > "$invalid_context_fixture" <<'EOF'
+# Project Context
+
+## Project
+weak-next-steps
+
+## Current State
+- Local server is implemented.
+
+## Next Step
+- Inferred: Implement phone notifications.
+EOF
+
+if oc__has_valid_context_output "$invalid_context_fixture"; then
+  echo "Expected context missing required sections to fail validation"
+  exit 1
+fi
+
+idea_home="$tmpdir/idea-home"
+idea_fixture="$tmpdir/idea.md"
+cat > "$idea_fixture" <<'EOF'
+---
+id: idea-2026-0627-local-idea-capture
+title: "Local Idea Capture"
+captured: 2026-06-27
+status: raw
+source: openai
+tags: [openclaw, idea-capture]
+one_line: "Capture raw application ideas into deterministic markdown files for later promotion."
+promoted_to: null
+---
+
+## Idea
+
+Capture early-stage app ideas as structured markdown before they become full projects. The import path should stay deterministic and local-first so the idea backlog can be searched, reviewed, and promoted later without forcing every thought into a project immediately.
+
+The idea agent handles conversation and synthesis, while `oc-idea-import` validates the final artifact and writes it into `~/Projects/.ideas/`.
+
+## Open questions
+
+- How much metadata should be required before promotion?
+
+## Update Log
+
+<!-- left empty at capture time; populated later by oc-idea-update -->
+EOF
+
+idea_import_output="$tmpdir/idea-import-output.txt"
+HOME="$idea_home" oc-idea-import "$idea_fixture" > "$idea_import_output"
+assert_contains "$idea_import_output" "Imported idea: idea-2026-0627-local-idea-capture"
+assert_contains "$idea_import_output" "Saved to: $idea_home/Projects/.ideas/idea-2026-0627-local-idea-capture.md"
+assert_contains "$idea_home/Projects/.ideas/idea-2026-0627-local-idea-capture.md" "source: openai"
+assert_contains "$idea_home/Projects/.ideas/idea-2026-0627-local-idea-capture.md" "## Update Log"
+
+HOME="$idea_home" oc-idea-import "$idea_fixture" > "$idea_import_output"
+assert_contains "$idea_import_output" "Imported idea: idea-2026-0627-local-idea-capture-2"
+assert_contains "$idea_home/Projects/.ideas/idea-2026-0627-local-idea-capture-2.md" "id: idea-2026-0627-local-idea-capture-2"
+
+invalid_idea_fixture="$tmpdir/invalid-idea.md"
+cat > "$invalid_idea_fixture" <<'EOF'
+---
+id: idea-2026-0627-local-idea-capture
+title: "Local Idea Capture"
+captured: 2026-06-27
+status: explored
+source: openai
+tags: [openclaw, idea-capture]
+one_line: "Capture raw application ideas into deterministic markdown files for later promotion."
+promoted_to: null
+---
+
+## Idea
+
+Invalid because status is not raw.
+
+## Open questions
+
+## Update Log
+EOF
+
+if HOME="$idea_home" oc-idea-import "$invalid_idea_fixture" > "$idea_import_output"; then
+  echo "Expected invalid idea status to fail"
+  exit 1
+fi
+assert_contains "$idea_import_output" "Invalid idea status: explored"
+
 portfolio_home="$tmpdir/home"
 meal_dir="$portfolio_home/Projects/meal-planner"
 smoke_dir="$portfolio_home/Projects/api-smoke-test"
@@ -265,6 +400,7 @@ help_output="$tmpdir/help-output.txt"
 oc-help > "$help_output"
 assert_contains "$help_output" "OPENCLAW-OPERATOR(1)"
 assert_contains "$help_output" "oc-list"
+assert_contains "$help_output" "oc-idea-import [input-file]"
 assert_contains "$help_output" "oc-projects --grouped [state]"
 assert_contains "$help_output" "oc-status <project>"
 

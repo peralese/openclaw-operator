@@ -96,6 +96,9 @@ COMMANDS
   oc-list
       List tracked project names only.
 
+  oc-idea-import [input-file]
+      Validate an idea-capture markdown file and save it under ~/Projects/.ideas.
+
   oc-projects
       Show tracked project contexts with last-updated time and next step.
 
@@ -137,6 +140,181 @@ COMMANDS
 SEE ALSO
   README.md in ~/Projects/openclaw-operator
 EOF
+}
+
+oc__idea_frontmatter_value() {
+  local idea_file="$1"
+  local key="$2"
+
+  awk -v key="$key" '
+    NR == 1 && $0 == "---" {
+      in_frontmatter = 1
+      next
+    }
+    in_frontmatter && $0 == "---" {
+      exit
+    }
+    in_frontmatter {
+      prefix = key ":"
+      if (index($0, prefix) == 1) {
+        value = substr($0, length(prefix) + 1)
+        sub(/^[[:space:]]+/, "", value)
+        sub(/[[:space:]]+$/, "", value)
+        print value
+        exit
+      }
+    }
+  ' "$idea_file"
+}
+
+oc__idea_has_frontmatter() {
+  local idea_file="$1"
+
+  awk '
+    NR == 1 && $0 == "---" {
+      opened = 1
+      next
+    }
+    opened && $0 == "---" {
+      closed = (NR > 2)
+      exit
+    }
+    END {
+      if (!opened || !closed) {
+        exit 1
+      }
+    }
+  ' "$idea_file"
+}
+
+oc__validate_idea_file() {
+  local idea_file="$1"
+
+  if ! oc__idea_has_frontmatter "$idea_file"; then
+    echo "Invalid idea file: missing YAML frontmatter"
+    return 1
+  fi
+
+  local id title captured idea_status source tags one_line promoted_to
+  id="$(oc__idea_frontmatter_value "$idea_file" "id")"
+  title="$(oc__idea_frontmatter_value "$idea_file" "title")"
+  captured="$(oc__idea_frontmatter_value "$idea_file" "captured")"
+  idea_status="$(oc__idea_frontmatter_value "$idea_file" "status")"
+  source="$(oc__idea_frontmatter_value "$idea_file" "source")"
+  tags="$(oc__idea_frontmatter_value "$idea_file" "tags")"
+  one_line="$(oc__idea_frontmatter_value "$idea_file" "one_line")"
+  promoted_to="$(oc__idea_frontmatter_value "$idea_file" "promoted_to")"
+
+  if [[ ! "$id" =~ '^idea-[0-9]{4}-[0-9]{4}-[a-z0-9]+(-[a-z0-9]+){0,4}$' ]]; then
+    echo "Invalid idea id: $id"
+    return 1
+  fi
+
+  if [ -z "$title" ]; then
+    echo "Invalid idea file: title is required"
+    return 1
+  fi
+
+  if [[ ! "$captured" =~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' ]]; then
+    echo "Invalid captured date: $captured"
+    return 1
+  fi
+
+  if [ "$idea_status" != "raw" ]; then
+    echo "Invalid idea status: $idea_status"
+    return 1
+  fi
+
+  if [ "$source" != "claude" ] && [ "$source" != "openai" ]; then
+    echo "Invalid idea source: $source"
+    return 1
+  fi
+
+  if [[ ! "$tags" =~ '^\[[a-z0-9-]+(, [a-z0-9-]+)*\]$' ]]; then
+    echo "Invalid idea tags: $tags"
+    return 1
+  fi
+
+  if [ -z "$one_line" ]; then
+    echo "Invalid idea file: one_line is required"
+    return 1
+  fi
+
+  if [ "$promoted_to" != "null" ]; then
+    echo "Invalid promoted_to value: $promoted_to"
+    return 1
+  fi
+
+  if ! grep -Fxq "## Idea" "$idea_file"; then
+    echo "Invalid idea file: missing ## Idea section"
+    return 1
+  fi
+
+  if ! grep -Fxq "## Open questions" "$idea_file"; then
+    echo "Invalid idea file: missing ## Open questions section"
+    return 1
+  fi
+
+  if ! grep -Fxq "## Update Log" "$idea_file"; then
+    echo "Invalid idea file: missing ## Update Log section"
+    return 1
+  fi
+}
+
+oc-idea-import() {
+  local input_file="${1:-}"
+  local temp_input=""
+  local idea_file=""
+
+  if [ -n "$input_file" ]; then
+    if [ ! -f "$input_file" ]; then
+      echo "Input file not found: $input_file"
+      return 1
+    fi
+    idea_file="$input_file"
+  elif [ ! -t 0 ]; then
+    temp_input="$(mktemp)"
+    cat > "$temp_input"
+    idea_file="$temp_input"
+  else
+    echo "Usage: oc-idea-import [input-file]"
+    return 1
+  fi
+
+  if ! oc__validate_idea_file "$idea_file"; then
+    [ -n "$temp_input" ] && rm -f "$temp_input"
+    return 1
+  fi
+
+  local ideas_dir="$HOME/Projects/.ideas"
+  mkdir -p "$ideas_dir"
+
+  local base_id final_id output_file counter
+  base_id="$(oc__idea_frontmatter_value "$idea_file" "id")"
+  final_id="$base_id"
+  output_file="$ideas_dir/$final_id.md"
+  counter=2
+
+  while [ -e "$output_file" ]; do
+    final_id="${base_id}-${counter}"
+    output_file="$ideas_dir/$final_id.md"
+    counter=$(( counter + 1 ))
+  done
+
+  awk -v final_id="$final_id" '
+    !replaced && /^id: / {
+      print "id: " final_id
+      replaced = 1
+      next
+    }
+    {
+      print
+    }
+  ' "$idea_file" > "$output_file"
+  [ -n "$temp_input" ] && rm -f "$temp_input"
+
+  echo "Imported idea: $final_id"
+  echo "Saved to: $output_file"
 }
 
 oc-projects() {
@@ -1104,7 +1282,7 @@ oc__prioritize_operational_sections() {
 
     function is_operational_header(name) {
       name = tolower(name)
-      return name ~ /^(next steps?|next action|todo|to do|roadmap|open issues?|known issues?|known limitations?|limitations|in progress|current status|current state|recent work|changelog|backlog|remaining work|future work|planned work|status)$/
+      return name ~ /(^|[^[:alnum:]])(next steps?|next action|todo|to do|roadmap|open issues?|known issues?|known limitations?|limitations|in progress|current status|current state|recent work|changelog|backlog|remaining work|future work|planned work|status|current mvp|later|nice to have|future enhancement)([^[:alnum:]]|$)/
     }
 
     /^#{1,6}[[:space:]]+/ {
@@ -1160,12 +1338,48 @@ oc__has_valid_context_output() {
   local context_output_file="$1"
 
   awk '
-    /^# Project Context[[:space:]]*$/ { found_context = 1 }
-    /^## Project[[:space:]]*$/ { found_project = 1 }
-    /^## Current State[[:space:]]*$/ { found_current = 1 }
-    /^## Next Step[[:space:]]*$/ { found_next = 1 }
+    function trim(s) {
+      sub(/^[[:space:]]+/, "", s)
+      sub(/[[:space:]]+$/, "", s)
+      return s
+    }
+
+    function has_content(name) {
+      return trim(section_text[name]) != ""
+    }
+
+    /^# Project Context[[:space:]]*$/ {
+      found_context = 1
+      current = ""
+      next
+    }
+
+    /^##[[:space:]]+/ {
+      current = $0
+      sub(/^##[[:space:]]+/, "", current)
+      current = trim(current)
+      seen[current] = 1
+      next
+    }
+
+    current != "" {
+      section_text[current] = section_text[current] "\n" $0
+    }
+
     END {
-      exit !(found_context && found_project && found_current && found_next)
+      exit !(found_context &&
+        seen["Project"] &&
+        seen["Current State"] &&
+        seen["In Progress"] &&
+        seen["Open Issues"] &&
+        seen["Next Step"] &&
+        seen["Suggested Resume Prompt"] &&
+        has_content("Project") &&
+        has_content("Current State") &&
+        has_content("In Progress") &&
+        has_content("Open Issues") &&
+        has_content("Next Step") &&
+        has_content("Suggested Resume Prompt"))
     }
   ' "$context_output_file"
 }
@@ -1206,6 +1420,7 @@ CRITICAL CONTEXT ISOLATION RULES:
 - Do NOT import details from unrelated projects
 - Do NOT merge this update with any other project
 - Use explicit information from the raw update first
+- Use PROJECT NAME exactly as the ## Project value unless the raw update explicitly names the same project more precisely
 - You may make conservative operational inferences from the raw update when they are useful, but label inferred next steps with "Inferred: "
 - Do NOT mention OpenClaw unless the raw update is specifically about OpenClaw
 - Do NOT invent commands, files, OpenClaw internals, cron jobs, dashboards, automations, issues, features, or project details
@@ -1216,14 +1431,14 @@ README AND DOCUMENTATION INGESTION RULES:
 - Extract what the project appears to do, its current maturity or working state, what is implemented, what is in progress, open issues, gaps, risks, missing pieces, and the most actionable next step
 - Represent current maturity or working state as a Current State bullet
 - If operational evidence is weak or the README lacks status-like information, say so under Open Issues
-- Prioritize sections named or resembling: Next Step, Next Steps, TODO, Roadmap, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Recent Work, Changelog
+- Prioritize sections named or resembling: Next Step, Next Steps, TODO, Roadmap, Roadmap Notes, Future Enhancement, Later / nice to have, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Current MVP, Recent Work, Changelog
 - Deprioritize installation/setup instructions, generic feature lists, marketing descriptions, long architecture explanations, badges, and dependency lists unless they indicate operational state
 
 NEXT STEP SELECTION RULES:
 - Always prefer one concrete, verb-led action that a developer or project owner can do next
 - A good next step starts with an action verb such as Implement, Fix, Add, Validate, Document, Review, Test, Refine, or Rerun
 - Do not use vague next steps such as Continue work, Improve project, Investigate later, Consider enhancements, or None
-- First look for explicit next-step language in sections named or resembling Next Step, Next Steps, TODO, Roadmap, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Recent Work, or Changelog
+- First look for explicit next-step language in sections named or resembling Next Step, Next Steps, TODO, Roadmap, Roadmap Notes, Future Enhancement, Later / nice to have, Open Issues, Known Issues, Known Limitations, In Progress, Current Status, Current State, Current MVP, Recent Work, or Changelog
 - If no explicit next step exists, infer one from the most operational gap, risk, known limitation, failing workflow, unfinished roadmap item, or missing validation described in the raw update
 - If inferring from gaps or limitations, choose the action that most directly improves usability, reliability, correctness, validation, or documentation
 - Use "No explicit next step found in README" only when the raw update provides no useful operational gap, risk, limitation, roadmap item, TODO, unfinished work, or validation target
@@ -1288,6 +1503,7 @@ RULES:
 - Do NOT re-synthesize the project from scratch
 - Do NOT import prior agent memory, other project contexts, or unrelated details
 - Prefer explicit information from NEW UPDATE
+- Use PROJECT NAME exactly as the ## Project value unless CURRENT CONTEXT explicitly names the same project more precisely
 - You may make conservative operational inferences from NEW UPDATE when useful, but label inferred next steps with "Inferred: "
 - Do NOT invent commands, files, OpenClaw internals, cron jobs, dashboards, automations, issues, features, or project details
 - Keep the output compact and deterministic
